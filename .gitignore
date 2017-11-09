@@ -87,3 +87,15 @@ ENV/
 
 # Rope project settings
 .ropeproject
+
+# Eclipse
+.metadata
+**/.settings
+**/.project
+**/.pydevproject
+
+# Misc.
+**/TMP
+**/NOT_IN_GITHUB
+
+
