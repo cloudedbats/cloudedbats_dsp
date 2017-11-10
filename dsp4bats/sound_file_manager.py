@@ -14,37 +14,52 @@ class SoundFileManager(object):
     
     def __init__(self): 
         """ """
-        self._todo = None
-        
-        self._soundfiles_df = None        
+        self._soundfiles_df = None
+        self._columns = [        
+            'detector_id', 
+            'datetime',
+            'datetime_str',
+            'latitude_dd',
+            'longitude_dd',
+            'latlong_str',
+            'rec_type',
+            'frame_rate_hz',
+            'file_frame_rate_hz',
+            'is_te',
+            'comments',
+            'dir_path',
+            'file_name',
+            'file_path',
+            'file_stem',
+            'abs_file_path',
+        ]
     
-    def find_sound_files(self, dir_path='.', recursive=False):
-        """ A dataframe is used to store found files. """
-
-        columns = ['a', 'b', 'c', 'd', 'e', 'f', ]
-        data = []
-
-        self._soundfiles_df = pd.DataFrame(data, columns=columns)
-        self._soundfiles_df.reset_index()
-        
+    def find_sound_files(self, dir_path='.', recursive=False, wurb_files_only=True):
+        """ Pandas dataframe is used to store found files. """
         path_list = []
+        # Search for wave files. 
         if recursive:
             path_list = sorted(pathlib.Path(dir_path).glob('**/*.wav'))
         else:
             path_list = sorted(pathlib.Path(dir_path).glob('*.wav'))
             
+        # Extract metadata from file name and populate dataframe.    
+        data = []
         for filepath in path_list:
             meta_dict = self.extract_metadata(filepath)
-            
-            print('')
-            print(pathlib.Path(filepath).name)
-            #print(meta_dict)
-            for key in sorted(meta_dict.keys()):
-                print('- ' + key + ': ' + str(meta_dict[key]))
-            
-            
+            if (wurb_files_only is False) or \
+               (meta_dict.get('wurb_format', False) is True):
+                #
+                data_row = []
+                for key in self._columns:
+                    data_row.append(meta_dict.get(key, ''))
+                #
+                data.append(data_row)
 
-        
+        # Create dataframe.    
+        self._soundfiles_df = pd.DataFrame(data, columns=self._columns)
+        self._soundfiles_df.reset_index()
+
     def extract_metadata(self, filepath):
         """ Used to extract file name parts from sound files created by CloudedBats-WURB.
             Format: <recorder-id>_<time>_<position>_<rec-type>_<comments>.wav
@@ -64,6 +79,7 @@ class SoundFileManager(object):
         parts = path.stem.split('_')
         
         # Check if the file is a WURB generated/formatted file.
+        meta_dict['wurb_format'] = False
         if path.suffix not in ['.wav']:
             return None
         if len(parts) >= 4:
@@ -75,7 +91,9 @@ class SoundFileManager(object):
                 return meta_dict
         else:
             return meta_dict
-        
+        #
+        meta_dict['wurb_format'] = True
+                
         # Detector id.
         if len(parts) > 0:
             meta_dict['detector_id'] = parts[0]
@@ -83,10 +101,10 @@ class SoundFileManager(object):
         # Datetime in ISO format.
         if len(parts) > 1:
             try:
-                meta_dict['datetime_iso'] = parts[1]
+                meta_dict['datetime_str'] = parts[1]
                 meta_dict['datetime'] = dateutil.parser.parse(parts[1])
             except:
-                meta_dict['datetime_iso'] = ''
+                meta_dict['datetime_str'] = ''
                 meta_dict['datetime'] = ''
                 
         # Latitude/longitude.
