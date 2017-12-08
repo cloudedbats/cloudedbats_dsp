@@ -34,6 +34,10 @@ class SoundFileManager(object):
             'abs_file_path',
         ]
     
+    def get_dataframe(self):
+        """ """
+        return self._soundfiles_df
+    
     def find_sound_files(self, dir_path='.', recursive=False, wurb_files_only=True):
         """ Pandas dataframe is used to store found files. """
         path_list = []
