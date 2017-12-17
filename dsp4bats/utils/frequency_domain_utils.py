@@ -14,12 +14,13 @@ class DbfsSpectrumUtil():
     def __init__(self, 
                  window_size=512,
                  window_function='hann',
-                 sampling_frequency=384000,
+                 sampling_freq=384000,
                  ):
         """ """
         self.window_size = window_size
-        self.sampling_frequency = sampling_frequency
+        self.sampling_freq = sampling_freq
         self.bins_in_hz = None
+        self.dbfs_matrix = None
         
         self.window = None
         if window_function.lower() in ['hanning', 'hann']:
@@ -40,16 +41,20 @@ class DbfsSpectrumUtil():
         """ Converts frequency bins to array in Hz. Calculated on demand. """
         # From "0" to "< FS/2".
         if self.bins_in_hz is None:      
-#            self.bins_in_hz = np.fft.rfftfreq(self.window_size)[1:] * self.sampling_frequency
-            self.bins_in_hz = np.fft.rfftfreq(self.window_size)[:-1] * self.sampling_frequency
+#            self.bins_in_hz = np.fft.rfftfreq(self.window_size)[1:] * self.sampling_freq
+            self.bins_in_hz = np.fft.rfftfreq(self.window_size)[:-1] * self.sampling_freq
 #             bins = np.fft.rfftfreq(self.window_size)[:-1]
-#             self.bins_in_hz = (bins + (bins[1] / 2)) * self.sampling_frequency # TODO: Adjust up in frequency???
+#             self.bins_in_hz = (bins + (bins[1] / 2)) * self.sampling_freq # TODO: Adjust up in frequency???
         #
         return self.bins_in_hz
 
     def calc_dbfs_matrix(self, signal, matrix_size=128, jump=384):
         """ Convert frame to dBFS spectrum. """
-        matrix = np.full([matrix_size, int(self.window_size / 2)], -100.0) # Default = -100 dBFS.
+        # Reuse the same matrix for fast processing.
+        if self.dbfs_matrix is None:
+            self.dbfs_matrix = np.full([matrix_size, int(self.window_size / 2)], -120.0) # Default = -120 dBFS.
+        else:
+            self.dbfs_matrix.fill(-120) # Default = -120 dBFS.
         #hop_length = int(self.rate/1000) # 1 ms.
         signal_len = len(signal)      
         row_number = 0
@@ -57,11 +62,11 @@ class DbfsSpectrumUtil():
         while (row_number < matrix_size) and ((start_index + jump) < signal_len):
             spectrum = self.calc_dbfs_spectrum(signal[start_index:start_index+self.window_size])
             if spectrum is not False:
-                matrix[row_number] = spectrum
+                self.dbfs_matrix[row_number] = spectrum
             row_number += 1
             start_index += jump
         #   
-        return matrix
+        return self.dbfs_matrix
 
     def calc_dbfs_spectrum(self, signal):
         """ Convert frame to dBFS spectrum. """
@@ -78,9 +83,28 @@ class DbfsSpectrumUtil():
         #
         return dbfs_spectrum
 
+    def interpolation_spectral_peak(self, spectrum_db):
+        """ Quadratic interpolation of spectral peaks. 
+            https://ccrma.stanford.edu/~jos/sasp/Quadratic_Interpolation_Spectral_Peaks.html
+        """
+        peak_bin = spectrum_db.argmax()
+        if (peak_bin == 0) or (peak_bin >= len(spectrum_db) - 1):
+            x_adjust = 0.0
+        else:
+            y0, y1, y2 = spectrum_db[peak_bin-1:peak_bin+2]
+            x_adjust = (y0 - y2) / 2 / (y0 - y1*2 + y2)
+        # 
+        peak_frequency = (peak_bin + x_adjust) * self.sampling_freq / self.window_size
+        # Peak magnitude.
+        peak_magnitude = y1 - (y0 - y2) * x_adjust / 4
+        #
+        return peak_frequency, peak_magnitude, x_adjust
 
 # === MAIN ===    
 if __name__ == "__main__":
     """ """
     print('Test started.')
+    dsu = DbfsSpectrumUtil(window_size=16)
+    freq, mag = dsu.calc_max_freq_from_db_spectrum(np.array([40,50,11,0,-10,-10,-10,5,10,5,-10,-10,-10,-10,30,20,]))
+    print('Freq: ', freq, '   Magnitude: ', mag)
     print('Test ended.')

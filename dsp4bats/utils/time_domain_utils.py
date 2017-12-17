@@ -11,15 +11,15 @@ import librosa
 class SignalUtil():
     """ """
     def __init__(self, 
-                 sampling_frequency=384000,
+                 sampling_freq=384000,
                  ):
         """ """
-        self.sampling_frequency = sampling_frequency
+        self.sampling_freq = sampling_freq
         self.array_in_sec = None
 
     def get_array_in_sec(self, signal):
         """ Used as x array in sec. """
-        return np.arange(0, len(signal)) / self.sampling_frequency
+        return np.arange(0, len(signal)) / self.sampling_freq
 
     def noise_level(self, signal):
         """ """
