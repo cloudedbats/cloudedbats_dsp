@@ -14,6 +14,7 @@ class DbfsSpectrumUtil():
     def __init__(self, 
                  window_size=512,
                  window_function='hann',
+                 kaiser_beta=14,
                  sampling_freq=384000,
                  ):
         """ """
@@ -31,6 +32,8 @@ class DbfsSpectrumUtil():
             self.window = np.blackman(self.window_size)
         elif window_function.lower() in ['blackmanharris', 'blackman-harris']:
             self.window = scipy.signal.blackmanharris(self.window_size)
+        elif window_function.lower() in ['kaiser']:
+            self.window = scipy.signal.kaiser(self.window_size, kaiser_beta)
         else:
             raise UserWarning("Invalid window function name.")
 
@@ -89,6 +92,9 @@ class DbfsSpectrumUtil():
         """
         peak_bin = spectrum_db.argmax()
         if (peak_bin == 0) or (peak_bin >= len(spectrum_db) - 1):
+            y0 = 0
+            y1 = spectrum_db[peak_bin]
+            y2 = 0
             x_adjust = 0.0
         else:
             y0, y1, y2 = spectrum_db[peak_bin-1:peak_bin+2]
@@ -98,7 +104,7 @@ class DbfsSpectrumUtil():
         # Peak magnitude.
         peak_magnitude = y1 - (y0 - y2) * x_adjust / 4
         #
-        return peak_frequency, peak_magnitude, x_adjust
+        return peak_frequency, peak_magnitude
 
 # === MAIN ===    
 if __name__ == "__main__":
