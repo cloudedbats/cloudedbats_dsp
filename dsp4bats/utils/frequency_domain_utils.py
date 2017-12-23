@@ -26,11 +26,9 @@ class DbfsSpectrumUtil():
         self.window = None
         if window_function.lower() in ['hanning', 'hann']:
             self.window = np.hanning(self.window_size)
-        elif window_function.lower() in ['hamming', 'ham']:
-            self.window = np.hamming(self.window_size)
         elif window_function.lower() in ['blackman', 'black']:
             self.window = np.blackman(self.window_size)
-        elif window_function.lower() in ['blackmanharris', 'blackman-harris']:
+        elif window_function.lower() in ['blackmanharris', 'blackman-harris', 'blackh']:
             self.window = scipy.signal.blackmanharris(self.window_size)
         elif window_function.lower() in ['kaiser']:
             self.window = scipy.signal.kaiser(self.window_size, kaiser_beta)
@@ -44,21 +42,21 @@ class DbfsSpectrumUtil():
         """ Converts frequency bins to array in Hz. Calculated on demand. """
         # From "0" to "< FS/2".
         if self.bins_in_hz is None:      
-#            self.bins_in_hz = np.fft.rfftfreq(self.window_size)[1:] * self.sampling_freq
             self.bins_in_hz = np.fft.rfftfreq(self.window_size)[:-1] * self.sampling_freq
-#             bins = np.fft.rfftfreq(self.window_size)[:-1]
-#             self.bins_in_hz = (bins + (bins[1] / 2)) * self.sampling_freq # TODO: Adjust up in frequency???
         #
         return self.bins_in_hz
 
-    def calc_dbfs_matrix(self, signal, matrix_size=128, jump=384):
+    def calc_dbfs_matrix(self, signal, 
+                         matrix_size=128, 
+                         jump=None):
         """ Convert frame to dBFS spectrum. """
+        if jump is None:
+            jump=self.sampling_freq/1000 # Default = 1 ms.
         # Reuse the same matrix for fast processing.
         if self.dbfs_matrix is None:
             self.dbfs_matrix = np.full([matrix_size, int(self.window_size / 2)], -120.0) # Default = -120 dBFS.
         else:
             self.dbfs_matrix.fill(-120) # Default = -120 dBFS.
-        #hop_length = int(self.rate/1000) # 1 ms.
         signal_len = len(signal)      
         row_number = 0
         start_index = 0
@@ -86,8 +84,8 @@ class DbfsSpectrumUtil():
         #
         return dbfs_spectrum
 
-    def interpolation_spectral_peak(self, spectrum_db):
-        """ Quadratic interpolation of spectral peaks. 
+    def interpolation_of_spectral_peak(self, spectrum_db):
+        """ Quadratic interpolation of spectral peaks. Read more at:
             https://ccrma.stanford.edu/~jos/sasp/Quadratic_Interpolation_Spectral_Peaks.html
         """
         peak_bin = spectrum_db.argmax()
@@ -106,11 +104,135 @@ class DbfsSpectrumUtil():
         #
         return peak_frequency, peak_magnitude
 
+    def extract_chirp_metrics(self, signal, peak_position, 
+                              jump_factor=4000, # Jump factor: 4000 = 0.25 ms.
+                              high_pass_filter_freq_hz=15000,
+                              threshold_dbfs = -50.0, 
+                              threshold_dbfs_below_peak = 15.0, 
+                              max_frames_to_check=100, 
+                              max_silent_slots=8, 
+                              debug=False):
+        """ """
+        signal_length = len(signal)
+        # Expected results.
+        peak_freq_hz = None
+        peak_dbfs = None
+        start_freq_hz = None
+        end_freq_hz = None
+        max_freq_hz = None
+        min_freq_hz = None
+        duration_ms = None
+        # Indexes for results.
+        peak_index = None
+        start_index = None
+        end_index = None
+        max_freq_index = None
+        min_freq_index = None
+        # Resolution in time.
+        jump = int(self.sampling_freq / jump_factor)
+        # Used to decide when to stop checking.
+        negative_index_counter = 0
+        positive_index_counter = 0
+        # Loop over frames. Switch between positive and negative side.
+        for ix in range(1, max_frames_to_check):
+            # Jump 0,1,-1,2,-2,3,-3...
+            index = int(ix / 2)
+            if (ix % 2) != 0: # Modulo operator.
+                index *= -1
+                if negative_index_counter > max_silent_slots:
+                    if positive_index_counter > max_silent_slots:
+                        # if debug: print('DEBUG: Break-pos: ', index)
+                        break # Done.
+                    else:
+                        continue # Don't check after silent part.
+            else:
+                if positive_index_counter > max_silent_slots:
+                    if negative_index_counter > max_silent_slots:
+                        # if debug: print('DEBUG: Break-neg: ', index)
+                        break # Done.
+                    else:
+                        continue # Don't check after silent part.
+            # Check if still inside signal.
+            start = peak_position + jump * index
+            if start < 0:
+                negative_index_counter = max_silent_slots + 10 # Finished.
+                continue
+            if start+self.window_size >= signal_length:
+                positive_index_counter = max_silent_slots + 10 # Finished.
+                continue
+            # Calculate spectrum in dBFS.            
+            spectrum = self.calc_dbfs_spectrum(signal[start:start+self.window_size])
+            if spectrum is False:
+                continue
+            # Calculate frequency and dBFS by interpolation over spectral bins. 
+            bin_freq_hz, bin_dbfs = self.interpolation_of_spectral_peak(spectrum)
+            # Check peak and adjust if the original peak_position was wrong..
+            if (peak_dbfs is None) or (peak_dbfs < bin_dbfs):
+                peak_dbfs = bin_dbfs
+                peak_freq_hz = bin_freq_hz
+                peak_index = index
+            # Check levels.
+            if (bin_dbfs > peak_dbfs - threshold_dbfs_below_peak) and \
+               (bin_dbfs > threshold_dbfs):
+                # Metric start_freq.
+                if (start_index is None) or (start_index > index ):
+                    start_freq_hz = bin_freq_hz 
+                    start_index = index
+                # Metric end.
+                if (end_index is None) or (end_index < index): 
+                    end_freq_hz = bin_freq_hz
+                    end_index = index
+                # Metric max_freq.
+                if (max_freq_index is None) or (max_freq_hz < bin_freq_hz):
+                    max_freq_hz = bin_freq_hz
+                    max_freq_index = index
+                # Metric min_freq.
+                if (min_freq_index is None) or (min_freq_hz > bin_freq_hz):
+                    min_freq_hz = bin_freq_hz
+                    min_freq_index = index
+                # Used to decide when to stop checking.    
+                if index < 0:
+                    negative_index_counter = 0
+                else:
+                    positive_index_counter = 0
+            else:
+                # Used to decide when to stop checking.
+                if index < 0:
+                    negative_index_counter += 1
+                else:
+                    positive_index_counter += 1
+        
+        # Loop finished.
+        if start_index is not None:
+            # Apply high pass filter.
+            if peak_freq_hz < high_pass_filter_freq_hz: 
+                return False # No peak above thos frequency was found.
+            #
+            peak_signal_index = peak_position + jump * peak_index
+            duration_ms = (end_index - start_index + 1) * jump / self.sampling_freq * 1000
+            # Print for debug.
+            if debug:
+                print('Peak index: ', peak_signal_index, 
+                      '  peak freq: ', np.round(peak_freq_hz/1000, 3), 
+                      '  peak dbfs: ', np.round(peak_dbfs, 1), \
+                      '  bw: ', np.round(np.absolute(start_freq_hz - end_freq_hz)/1000, 3), 
+                      '  start freq: ', np.round(start_freq_hz/1000, 3), 
+                      '  end freq: ', np.round(end_freq_hz/1000, 3), 
+                      '  min freq: ', np.round(min_freq_hz/1000, 3), 
+                      '  max freq: ', np.round(max_freq_hz/1000, 3), 
+                      '  duration (ms): ', duration_ms  )
+            #
+            return (peak_signal_index, peak_freq_hz, peak_dbfs,start_freq_hz, end_freq_hz, max_freq_hz, min_freq_hz, duration_ms)
+
+
+
 # === MAIN ===    
 if __name__ == "__main__":
     """ """
     print('Test started.')
     dsu = DbfsSpectrumUtil(window_size=16)
-    freq, mag = dsu.calc_max_freq_from_db_spectrum(np.array([40,50,11,0,-10,-10,-10,5,10,5,-10,-10,-10,-10,30,20,]))
-    print('Freq: ', freq, '   Magnitude: ', mag)
+    freq, mag = dsu.interpolation_of_spectral_peak(np.array([0,0,0,0,0,0,0,3,10,3,0,0,0,0,0,0,]))
+    print('Freq: ', freq, '   magnitude: ', mag)
+    freq, mag = dsu.interpolation_of_spectral_peak(np.array([0,0,0,0,0,0,0,3,10,7,0,0,0,0,0,0,]))
+    print('Freq: ', freq, '   magnitude: ', mag)
     print('Test ended.')

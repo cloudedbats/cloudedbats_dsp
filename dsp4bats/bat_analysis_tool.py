@@ -58,7 +58,7 @@ class BatAnalysisTool():
                 # Get noise level for 1 sec.
                 noise_level = signal_util.noise_level(signal_1s)
                 noise_level_db = signal_util.noise_level_in_db(signal_1s)
-                print('Noise level: ', np.round(noise_level, 2), '   Noise (db): ', np.round(noise_level_db, 2))
+                print('Noise level: ', np.round(noise_level, 5), '   Noise (db): ', np.round(noise_level_db, 2))
 
                 # Find peaks in time domain.
                 peaks = signal_util.calc_localmax(signal=signal_1s,
@@ -70,109 +70,127 @@ class BatAnalysisTool():
                 
                 peak_number = 0
                 for peak_position in peaks:
-                     
-                    # Results.
-                    peak_freq = None
-                    peak_dbfs = None
-                    start_freq = None
-                    end_freq = None
-                    max_freq = None
-                    min_freq = None
-                    duration = None
                     
-                    # Indexes for results.
-                    peak_index = None
-                    start_index = None
-                    end_index = None
-                    max_freq_index = None
-                    min_freq_index = None
+                    # NEW. Part of spectrum_util.
+                    result = spectrum_util.extract_chirp_metrics(
+                                                signal=signal_1s, 
+                                                peak_position=peak_position, 
+                                                jump_factor=4000, 
+                                                high_pass_filter_freq_hz=15000, 
+                                                threshold_dbfs = noise_level_db, # + 5.0, 
+                                                threshold_dbfs_below_peak = 20.0, 
+                                                max_frames_to_check=100, 
+                                                max_silent_slots=8, 
+                                                debug=True)
+                    if result is False:
+                        continue
+                    else:
+                        found_peak_counter += 1
                     
-                    wsize = spectrum_util.window_size
-                    jump = int(sampling_freq/1000/4)
-
-                    max_frames_to_check = 100
-                    negative_index_counter = 0
-                    positive_index_counter = 0
-                    for ix in range(1, max_frames_to_check):
-                        # Jump 0,1,-1,2,-2,3,-3...
-                        index = int(ix / 2)
-                        if (ix % 2) != 0: # Modulo operator.
-                            index *= -1
-                            if negative_index_counter > 5:
-                                continue # Don't check after silent part.
-                        else:
-                            if positive_index_counter > 5:
-                                continue # Don't check after silent part.
-                        
-                        start = peak_position + jump * index
-                        
-                        spectrum = spectrum_util.calc_dbfs_spectrum(signal_1s[start:start+wsize])
-                        if spectrum is False:
-                            continue
-                         
-                        bin_freq_hz, bin_dbfs = spectrum_util.interpolation_spectral_peak(spectrum)
-                        
-                        # Peak.
-                        if (peak_dbfs is None) or (peak_dbfs < bin_dbfs):
-                            peak_dbfs = bin_dbfs
-                            peak_freq = bin_freq_hz
-                            peak_index = index
-
-                        if (bin_dbfs > peak_dbfs - 15.0) and \
-                           (bin_dbfs > -55.0):
-                            
-                            if (start_index is None) or (start_index > index ):
-                                start_freq = bin_freq_hz 
-                                start_index = index
-                            if (end_index is None) or (end_index < index): 
-                                end_freq = bin_freq_hz
-                                end_index = index
-                            
-                            # Max.
-                            if (max_freq_index is None) or (max_freq < bin_freq_hz):
-                                max_freq_dbfs = bin_dbfs
-                                max_freq = bin_freq_hz
-                                max_freq_index = index
-                            # Min.
-                            if (min_freq_index is None) or (min_freq > bin_freq_hz):
-                                min_freq_dbfs = bin_dbfs
-                                min_freq = bin_freq_hz
-                                min_freq_index = index
-                                
-                            if index < 0:
-                                negative_index_counter = 0
-                            else:
-                                positive_index_counter = 0
-                        else:
-                            if index < 0:
-                                negative_index_counter += 1
-                            else:
-                                positive_index_counter += 1
-                                
-                                
-                    if start_index is not None:
-
-                        # High pass filter.
-                        if peak_freq < 15000: 
-                            continue
-                        
-                        wav_file_index = buffer_number * buffer_size + peak_position + peak_index
-                        time_s = wav_file_index / sampling_freq
-                        duration = (end_index - start_index + 1) * jump / sampling_freq
-                        
-                        print('time (sec): ', np.round(time_s, 5),
-#                               ' Index in file: ', wav_file_index, 
-                              '  peak freq: ', np.round(peak_freq/1000, 3), 
-                              '  bw: ', np.round(np.absolute(start_freq - end_freq)/1000, 3), 
-                              '  peak dbfs: ', np.round(peak_dbfs, 1), \
-                              '  start freq: ', np.round(start_freq/1000, 3), 
-                              '  end freq: ', np.round(end_freq/1000, 3), 
-                              '  min freq: ', np.round(min_freq/1000, 3), 
-                              '  max freq: ', np.round(max_freq/1000, 3), 
-                              '  duration (ms): ', duration * 1000  )
-                        #
-                        found_peak_counter += 1    
-                    #
+#                     # OLD. Similar for test.
+#
+#                     # Results.
+#                     peak_freq = None
+#                     peak_dbfs = None
+#                     start_freq = None
+#                     end_freq = None
+#                     max_freq = None
+#                     min_freq = None
+#                     duration = None
+#                     
+#                     # Indexes for results.
+#                     peak_index = None
+#                     start_index = None
+#                     end_index = None
+#                     max_freq_index = None
+#                     min_freq_index = None
+#                     
+#                     wsize = spectrum_util.window_size
+#                     jump = int(sampling_freq/1000/4)
+# 
+#                     max_frames_to_check = 100
+#                     negative_index_counter = 0
+#                     positive_index_counter = 0
+#                     for ix in range(1, max_frames_to_check):
+#                         # Jump 0,1,-1,2,-2,3,-3...
+#                         index = int(ix / 2)
+#                         if (ix % 2) != 0: # Modulo operator.
+#                             index *= -1
+#                             if negative_index_counter > 5:
+#                                 continue # Don't check after silent part.
+#                         else:
+#                             if positive_index_counter > 5:
+#                                 continue # Don't check after silent part.
+#                         
+#                         start = peak_position + jump * index
+#                         
+#                         spectrum = spectrum_util.calc_dbfs_spectrum(signal_1s[start:start+wsize])
+#                         if spectrum is False:
+#                             continue
+#                          
+#                         bin_freq_hz, bin_dbfs = spectrum_util.interpolation_spectral_peak(spectrum)
+#                         
+#                         # Peak.
+#                         if (peak_dbfs is None) or (peak_dbfs < bin_dbfs):
+#                             peak_dbfs = bin_dbfs
+#                             peak_freq = bin_freq_hz
+#                             peak_index = index
+# 
+#                         if (bin_dbfs > peak_dbfs - 15.0) and \
+#                            (bin_dbfs > -55.0):
+#                             
+#                             if (start_index is None) or (start_index > index ):
+#                                 start_freq = bin_freq_hz 
+#                                 start_index = index
+#                             if (end_index is None) or (end_index < index): 
+#                                 end_freq = bin_freq_hz
+#                                 end_index = index
+#                             
+#                             # Max.
+#                             if (max_freq_index is None) or (max_freq < bin_freq_hz):
+#                                 max_freq_dbfs = bin_dbfs
+#                                 max_freq = bin_freq_hz
+#                                 max_freq_index = index
+#                             # Min.
+#                             if (min_freq_index is None) or (min_freq > bin_freq_hz):
+#                                 min_freq_dbfs = bin_dbfs
+#                                 min_freq = bin_freq_hz
+#                                 min_freq_index = index
+#                                 
+#                             if index < 0:
+#                                 negative_index_counter = 0
+#                             else:
+#                                 positive_index_counter = 0
+#                         else:
+#                             if index < 0:
+#                                 negative_index_counter += 1
+#                             else:
+#                                 positive_index_counter += 1
+#                                 
+#                                 
+#                     if start_index is not None:
+# 
+#                         # High pass filter.
+#                         if peak_freq < 15000: 
+#                             continue
+#                         
+#                         wav_file_index = buffer_number * buffer_size + peak_position + peak_index
+#                         time_s = wav_file_index / sampling_freq
+#                         duration = (end_index - start_index + 1) * jump / sampling_freq
+#                         
+#                         print('time (sec): ', np.round(time_s, 5),
+# #                               ' Index in file: ', wav_file_index, 
+#                               '  peak freq: ', np.round(peak_freq/1000, 3), 
+#                               '  bw: ', np.round(np.absolute(start_freq - end_freq)/1000, 3), 
+#                               '  peak dbfs: ', np.round(peak_dbfs, 1), \
+#                               '  start freq: ', np.round(start_freq/1000, 3), 
+#                               '  end freq: ', np.round(end_freq/1000, 3), 
+#                               '  min freq: ', np.round(min_freq/1000, 3), 
+#                               '  max freq: ', np.round(max_freq/1000, 3), 
+#                               '  duration (ms): ', duration * 1000  )
+#                         #
+#                         found_peak_counter += 1    
+#                     #
                     
                     
                     # === Create text file for plotting in ZC style. ===
@@ -185,7 +203,7 @@ class BatAnalysisTool():
                      
                     # Get max dBFS value.
                     row, col = np.unravel_index(matrix.argmax(), matrix.shape)
-                    calc_peak_freq_hz, calc_peak_dbfs = spectrum_util.interpolation_spectral_peak(matrix[row])
+                    calc_peak_freq_hz, calc_peak_dbfs = spectrum_util.interpolation_of_spectral_peak(matrix[row])
                      
                     if (calc_peak_freq_hz > 15000) and (calc_peak_dbfs > -50):
                     
@@ -196,7 +214,7 @@ class BatAnalysisTool():
                             # Prepare for file.
                             plot_threshold = np.maximum(calc_peak_dbfs - 25.0, -50.0)
                             for spectrum_index, spectrum in enumerate(matrix):
-                                freq_hz, dbfs = spectrum_util.interpolation_spectral_peak(spectrum)
+                                freq_hz, dbfs = spectrum_util.interpolation_of_spectral_peak(spectrum)
                                 
                                 if dbfs > plot_threshold:
                                     out_row = []
@@ -229,8 +247,8 @@ if __name__ == "__main__":
     """ """
     print('Test started.\n')
     
-    bat = BatAnalysisTool(wave_file_path='sin50khz_TE384.wav')
-    bat.analyse_file()
+#     bat = BatAnalysisTool(wave_file_path='sin50khz_TE384.wav')
+#     bat.analyse_file()
     print('Mdau_TE384\n')
     bat = BatAnalysisTool(wave_file_path='../notebooks/data_in/Mdau_TE384.wav')
     bat.analyse_file()
