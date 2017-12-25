@@ -21,7 +21,7 @@ class DbfsSpectrumUtil():
         self.window_size = window_size
         self.sampling_freq = sampling_freq
         self.bins_in_hz = None
-        self.dbfs_matrix = None
+#         self.dbfs_matrix = None
         
         self.window = None
         if window_function.lower() in ['hanning', 'hann']:
@@ -52,22 +52,28 @@ class DbfsSpectrumUtil():
         """ Convert frame to dBFS spectrum. """
         if jump is None:
             jump=self.sampling_freq/1000 # Default = 1 ms.
-        # Reuse the same matrix for fast processing.
-        if self.dbfs_matrix is None:
-            self.dbfs_matrix = np.full([matrix_size, int(self.window_size / 2)], -120.0) # Default = -120 dBFS.
-        else:
-            self.dbfs_matrix.fill(-120) # Default = -120 dBFS.
+            
+#         # Reuse the same matrix for fast processing.
+#         if self.dbfs_matrix is None:
+#             self.dbfs_matrix = np.full([matrix_size, int(self.window_size / 2)], -120.0) # Default = -120 dBFS.
+#         else:
+#             self.dbfs_matrix.fill(-120) # Default = -120 dBFS.
+
+        dbfs_matrix = np.full([matrix_size, int(self.window_size / 2)], -120.0) # Default = -120 dBFS.
+
         signal_len = len(signal)      
         row_number = 0
         start_index = 0
         while (row_number < matrix_size) and ((start_index + jump) < signal_len):
             spectrum = self.calc_dbfs_spectrum(signal[start_index:start_index+self.window_size])
             if spectrum is not False:
-                self.dbfs_matrix[row_number] = spectrum
+#                 self.dbfs_matrix[row_number] = spectrum
+                dbfs_matrix[row_number] = spectrum
             row_number += 1
             start_index += jump
         #   
-        return self.dbfs_matrix
+#         return self.dbfs_matrix
+        return dbfs_matrix
 
     def calc_dbfs_spectrum(self, signal):
         """ Convert frame to dBFS spectrum. """
@@ -99,20 +105,28 @@ class DbfsSpectrumUtil():
             x_adjust = (y0 - y2) / 2 / (y0 - y1*2 + y2)
         # 
         peak_frequency = (peak_bin + x_adjust) * self.sampling_freq / self.window_size
-        # Peak magnitude.
-        peak_magnitude = y1 - (y0 - y2) * x_adjust / 4
+        # Peak amplitude.
+        peak_amplitude = y1 - (y0 - y2) * x_adjust / 4
         #
-        return peak_frequency, peak_magnitude
+        return peak_frequency, peak_amplitude
 
-    def extract_chirp_metrics(self, signal, peak_position, 
-                              jump_factor=4000, # Jump factor: 4000 = 0.25 ms.
-                              high_pass_filter_freq_hz=15000,
-                              threshold_dbfs = -50.0, 
-                              threshold_dbfs_below_peak = 15.0, 
-                              max_frames_to_check=100, 
-                              max_silent_slots=8, 
-                              debug=False):
+    def chirp_metrics_header(self):
         """ """
+        return ['peak_freq_hz', 'peak_dbfs', 
+                'start_freq_hz', 'end_freq_hz', 
+                'max_freq_hz', 'min_freq_hz', 
+                'duration_ms', 
+                'peak_signal_index', 'start_signal_index', 'end_signal_index']
+        
+    def chirp_metrics(self, signal, peak_position, 
+                      jump_factor=4000, # Jump factor: 4000 = 0.25 ms.
+                      high_pass_filter_freq_hz=15000,
+                      threshold_dbfs = -50.0, 
+                      threshold_dbfs_below_peak = 15.0, 
+                      max_frames_to_check=100, 
+                      max_silent_slots=8, 
+                      debug=False):
+        """ Extracts chirp metrics based on peak freq/"""
         signal_length = len(signal)
         # Expected results.
         peak_freq_hz = None
@@ -139,6 +153,7 @@ class DbfsSpectrumUtil():
             index = int(ix / 2)
             if (ix % 2) != 0: # Modulo operator.
                 index *= -1
+            if index < 0:
                 if negative_index_counter > max_silent_slots:
                     if positive_index_counter > max_silent_slots:
                         # if debug: print('DEBUG: Break-pos: ', index)
@@ -209,6 +224,8 @@ class DbfsSpectrumUtil():
                 return False # No peak above thos frequency was found.
             #
             peak_signal_index = peak_position + jump * peak_index
+            start_signal_index = peak_position + jump * start_index
+            end_signal_index = peak_position + jump * end_index
             duration_ms = (end_index - start_index + 1) * jump / self.sampling_freq * 1000
             # Print for debug.
             if debug:
@@ -222,8 +239,52 @@ class DbfsSpectrumUtil():
                       '  max freq: ', np.round(max_freq_hz/1000, 3), 
                       '  duration (ms): ', duration_ms  )
             #
-            return (peak_signal_index, peak_freq_hz, peak_dbfs,start_freq_hz, end_freq_hz, max_freq_hz, min_freq_hz, duration_ms)
+            return (peak_freq_hz, peak_dbfs, 
+                    start_freq_hz, end_freq_hz, 
+                    max_freq_hz, min_freq_hz, 
+                    duration_ms, 
+                    peak_signal_index, start_signal_index, end_signal_index)
+        else:
+            return False
 
+    def chirp_shape_row_header(self):
+        """ """
+        return ['time_s', 'frequency_hz', 'amplitude_dbfs', 'signal_index']
+        
+    def chirp_shape(self, signal, peak_position, 
+                    start_index=None, 
+                    stop_index=None, 
+                    jump_factor=8000, # Jump factor: 8000 = 0.125 ms.
+                    max_size=256):
+        """ To be used for plotting similar to ZC (Zero Crossing). """
+        # Create a matrix with one row for each 0.125 ms. Size 256*(window_size/2). 
+        jump = int(self.sampling_freq / jump_factor) 
+        if start_index is None:
+            start_index = int(peak_position - (max_size * jump / 2))
+        if stop_index is not None:
+            max_size = int((stop_index - start_index) / jump)
+        # Make it wider.
+        start_index -= jump * 5
+        max_size += 5
+        # Calculate matrix.                
+        matrix = self.calc_dbfs_matrix(signal[start_index:], matrix_size=max_size, jump=jump)
+        # Get max dBFS value. (Note: Not needed now, maybe later...)
+        # row, col = np.unravel_index(matrix.argmax(), matrix.shape)
+        # calc_peak_freq_hz, calc_peak_dbfs = self.interpolation_of_spectral_peak(matrix[row])
+        #
+        result_table = []
+        for spectrum_index, spectrum in enumerate(matrix):
+            # Interpolate.
+            freq_hz, amp_db = self.interpolation_of_spectral_peak(spectrum)
+            #
+            signal_index = start_index + spectrum_index * jump
+            time_s = np.round(signal_index / self.sampling_freq, 5)
+            frequency_hz = np.round(freq_hz, 0)
+            amplitude_dbfs = np.round(amp_db, 1)
+            # Add to result.
+            result_table.append([time_s, frequency_hz, amplitude_dbfs, signal_index])
+        #
+        return result_table
 
 
 # === MAIN ===    
@@ -231,8 +292,8 @@ if __name__ == "__main__":
     """ """
     print('Test started.')
     dsu = DbfsSpectrumUtil(window_size=16)
-    freq, mag = dsu.interpolation_of_spectral_peak(np.array([0,0,0,0,0,0,0,3,10,3,0,0,0,0,0,0,]))
-    print('Freq: ', freq, '   magnitude: ', mag)
-    freq, mag = dsu.interpolation_of_spectral_peak(np.array([0,0,0,0,0,0,0,3,10,7,0,0,0,0,0,0,]))
-    print('Freq: ', freq, '   magnitude: ', mag)
+    freq, amp_db = dsu.interpolation_of_spectral_peak(np.array([0,0,0,0,0,0,0,3,10,3,0,0,0,0,0,0,]))
+    print('Freq: ', freq, '   amp(db): ', amp_db)
+    freq, amp_db = dsu.interpolation_of_spectral_peak(np.array([0,0,0,0,0,0,0,3,10,7,0,0,0,0,0,0,]))
+    print('Freq: ', freq, '   amp(db): ', amp_db)
     print('Test ended.')
