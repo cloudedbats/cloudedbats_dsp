@@ -90,7 +90,7 @@ class DbfsSpectrumUtil():
         #
         return dbfs_spectrum
 
-    def interpolation_of_spectral_peak(self, spectrum_db):
+    def interpolate_spectral_peak(self, spectrum_db):
         """ Quadratic interpolation of spectral peaks. Read more at:
             https://ccrma.stanford.edu/~jos/sasp/Quadratic_Interpolation_Spectral_Peaks.html
         """
@@ -180,7 +180,7 @@ class DbfsSpectrumUtil():
             if spectrum is False:
                 continue
             # Calculate frequency and dBFS by interpolation over spectral bins. 
-            bin_freq_hz, bin_dbfs = self.interpolation_of_spectral_peak(spectrum)
+            bin_freq_hz, bin_dbfs = self.interpolate_spectral_peak(spectrum)
             # Check peak and adjust if the original peak_position was wrong..
             if (peak_dbfs is None) or (peak_dbfs < bin_dbfs):
                 peak_dbfs = bin_dbfs
@@ -270,12 +270,12 @@ class DbfsSpectrumUtil():
         matrix = self.calc_dbfs_matrix(signal[start_index:], matrix_size=max_size, jump=jump)
         # Get max dBFS value. (Note: Not needed now, maybe later...)
         # row, col = np.unravel_index(matrix.argmax(), matrix.shape)
-        # calc_peak_freq_hz, calc_peak_dbfs = self.interpolation_of_spectral_peak(matrix[row])
+        # calc_peak_freq_hz, calc_peak_dbfs = self.interpolate_spectral_peak(matrix[row])
         #
         result_table = []
         for spectrum_index, spectrum in enumerate(matrix):
             # Interpolate.
-            freq_hz, amp_db = self.interpolation_of_spectral_peak(spectrum)
+            freq_hz, amp_db = self.interpolate_spectral_peak(spectrum)
             #
             signal_index = start_index + spectrum_index * jump
             time_s = np.round(signal_index / self.sampling_freq, 5)
@@ -292,8 +292,8 @@ if __name__ == "__main__":
     """ """
     print('Test started.')
     dsu = DbfsSpectrumUtil(window_size=16)
-    freq, amp_db = dsu.interpolation_of_spectral_peak(np.array([0,0,0,0,0,0,0,3,10,3,0,0,0,0,0,0,]))
+    freq, amp_db = dsu.interpolate_spectral_peak(np.array([0,0,0,0,0,0,0,3,10,3,0,0,0,0,0,0,]))
     print('Freq: ', freq, '   amp(db): ', amp_db)
-    freq, amp_db = dsu.interpolation_of_spectral_peak(np.array([0,0,0,0,0,0,0,3,10,7,0,0,0,0,0,0,]))
+    freq, amp_db = dsu.interpolate_spectral_peak(np.array([0,0,0,0,0,0,0,3,10,7,0,0,0,0,0,0,]))
     print('Freq: ', freq, '   amp(db): ', amp_db)
     print('Test ended.')

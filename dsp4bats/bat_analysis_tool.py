@@ -1,7 +1,7 @@
 #!/usr/bin/python3
 # -*- coding:utf-8 -*-
 # Project: http://cloudedbats.org
-# Copyright (c) 2017 Arnold Andreasson 
+# Copyright (c) 2017-2018 Arnold Andreasson 
 # License: MIT License (see LICENSE.txt or http://opensource.org/licenses/mit).
 
 import numpy as np
@@ -9,8 +9,10 @@ import librosa
 ###import soundfile
 import wave
 import pathlib
-import utils.time_domain_utils
-import utils.frequency_domain_utils
+
+#import dsp4bats
+import time_domain_utils
+import frequency_domain_utils
 
 class BatAnalysisTool():
     """ """
@@ -32,8 +34,8 @@ class BatAnalysisTool():
             sampling_freq *= 10
         
         # Prepare utilities.
-        signal_util = utils.time_domain_utils.SignalUtil(sampling_freq)
-        spectrum_util = utils.frequency_domain_utils.DbfsSpectrumUtil(window_size=128,
+        signal_util = time_domain_utils.SignalUtil(sampling_freq)
+        spectrum_util = frequency_domain_utils.DbfsSpectrumUtil(window_size=128,
                                                                       window_function='kaiser',
                                                                       kaiser_beta=14,
                                                                       sampling_freq=sampling_freq)
@@ -61,9 +63,9 @@ class BatAnalysisTool():
                 print('Noise level: ', np.round(noise_level, 5), '   Noise (db): ', np.round(noise_level_db, 2))
 
                 # Find peaks in time domain.
-                peaks = signal_util.calc_localmax(signal=signal_1sec,
+                peaks = signal_util.find_localmax(signal=signal_1sec,
                                                   noise_threshold=noise_level*4.0, # Threshold.
-                                                  hop_length=int(sampling_freq/1000), # Jump 1 ms.
+                                                  jump=int(sampling_freq/1000), # Jump 1 ms.
                                                   frame_length=1024) # Window size.
                                 
                 peak_number = 0
@@ -116,7 +118,7 @@ class BatAnalysisTool():
 #                      
 #                     # Get max dBFS value.
 #                     row, col = np.unravel_index(matrix.argmax(), matrix.shape)
-#                     calc_peak_freq_hz, calc_peak_dbfs = spectrum_util.interpolation_of_spectral_peak(matrix[row])
+#                     calc_peak_freq_hz, calc_peak_dbfs = spectrum_util.interpolate_spectral_peak(matrix[row])
 #                      
 #                     if (calc_peak_freq_hz > 15000) and (calc_peak_dbfs > -50):
 #                     
@@ -127,7 +129,7 @@ class BatAnalysisTool():
 #                             # Prepare for file.
 #                             plot_threshold = np.maximum(calc_peak_dbfs - 25.0, -50.0)
 #                             for spectrum_index, spectrum in enumerate(matrix):
-#                                 freq_hz, dbfs = spectrum_util.interpolation_of_spectral_peak(spectrum)
+#                                 freq_hz, dbfs = spectrum_util.interpolate_spectral_peak(spectrum)
 #                                 
 #                                 if dbfs > plot_threshold:
 #                                     out_row = []

@@ -66,26 +66,29 @@ class WaveFileReader():
 class WaveFileWriter():
     """ """
     def __init__(self, file_path=None,
-                    channels = 1,
-                    samp_width = 2,
-                    frame_rate = 38400,
-                    sampling_freq = 384000,
+                 channels = 1,
+                 samp_width = 2,
+                 sampling_freq = 384000,
+                 frame_rate = 38400,
+                 time_expanded = False,   
                 ):
         """ """
         self.clear()
         self.file_path = file_path
         self.channels = channels
         self.samp_width = samp_width
-        self.frame_rate = frame_rate
         self.sampling_freq = sampling_freq
+        self.frame_rate = frame_rate
+        self.time_expanded = time_expanded
         
     def clear(self):
         """ """
         self.wave_file = None
         self.channels = None
         self.samp_width = None
-        self.frame_rate = None
         self.sampling_freq = None
+        self.frame_rate = None
+        self.time_expanded = False
 
     def open(self, file_path=None):
         """ """
@@ -95,12 +98,15 @@ class WaveFileWriter():
         if self.wave_file is not None:
             self.close()
         #
+        if self.time_expanded:
+            self.frame_rate = int(self.sampling_freq / 10)
+        #
         self.wave_file = wave.open(self.file_path, 'wb')
         self.wave_file.setnchannels(self.channels)
         self.wave_file.setsampwidth(self.samp_width)
         self.wave_file.setframerate(self.frame_rate)
 
-    def write_buffer(self, buffer):
+    def write_buffer(self, signal):
         """ """
         if self.wave_file is None:
             self.open()
@@ -195,10 +201,9 @@ if __name__ == "__main__":
     signal_util = SignalUtil(sampling_freq=384000)
     signal = signal_util.chirp_generator() # Defaults only.
     # Write to file in Time Expanded mode.
-    freq = int(signal_util.sampling_freq / 10)
-    signal_int16 = np.int16(signal * 32767)
-    # Write to file.  
-    wave_writer = WaveFileWriter('test.wav')
+    wave_writer = WaveFileWriter('test.wav',
+                                 sampling_freq=signal_util.sampling_freq,
+                                 time_expanded=True)
     wave_writer.write_buffer(signal)
     print('Out buffer length in sec: ', len(signal)/wave_writer.sampling_freq)
     wave_writer.write_buffer(signal)
