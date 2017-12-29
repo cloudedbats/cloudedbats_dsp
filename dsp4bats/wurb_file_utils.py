@@ -1,7 +1,7 @@
 #!/usr/bin/python3
 # -*- coding:utf-8 -*-
 # Project: http://cloudedbats.org
-# Copyright (c) 2017 Arnold Andreasson 
+# Copyright (c) 2017-2018 Arnold Andreasson 
 # License: MIT License (see LICENSE.txt or http://opensource.org/licenses/mit).
 
 import pathlib
@@ -9,7 +9,7 @@ import re
 import dateutil.parser
 import pandas as pd
 
-class SoundFileManager(object):
+class WurbFileUtils(object):
     """ Class for sound file management. """
     
     def __init__(self): 

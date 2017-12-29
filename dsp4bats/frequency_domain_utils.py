@@ -1,7 +1,7 @@
 #!/usr/bin/python3
 # -*- coding:utf-8 -*-
 # Project: http://cloudedbats.org
-# Copyright (c) 2017 Arnold Andreasson 
+# Copyright (c) 2017-2018 Arnold Andreasson 
 # License: MIT License (see LICENSE.txt or http://opensource.org/licenses/mit).
 
 import numpy as np
@@ -12,8 +12,8 @@ import librosa
 class DbfsSpectrumUtil():
     """ """
     def __init__(self, 
-                 window_size=512,
-                 window_function='hann',
+                 window_size=256,
+                 window_function='kaiser',
                  kaiser_beta=14,
                  sampling_freq=384000,
                  ):
@@ -51,7 +51,7 @@ class DbfsSpectrumUtil():
                          jump=None):
         """ Convert frame to dBFS spectrum. """
         if jump is None:
-            jump=self.sampling_freq/1000 # Default = 1 ms.
+            jump=int(self.sampling_freq/1000) # Default = 1 ms.
             
 #         # Reuse the same matrix for fast processing.
 #         if self.dbfs_matrix is None:
@@ -287,7 +287,7 @@ class DbfsSpectrumUtil():
         return result_table
 
 
-# === MAIN ===    
+# === TEST ===    
 if __name__ == "__main__":
     """ """
     print('Test started.')
