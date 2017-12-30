@@ -112,9 +112,9 @@ class DbfsSpectrumUtil():
 
     def chirp_metrics_header(self):
         """ """
-        return ['peak_freq_hz', 'peak_dbfs', 
-                'start_freq_hz', 'end_freq_hz', 
-                'max_freq_hz', 'min_freq_hz', 
+        return ['peak_freq_khz', 'peak_dbfs', 
+                'start_freq_khz', 'end_freq_khz', 
+                'max_freq_khz', 'min_freq_khz', 
                 'duration_ms', 
                 'peak_signal_index', 'start_signal_index', 'end_signal_index']
         
@@ -239,11 +239,16 @@ class DbfsSpectrumUtil():
                       '  max freq: ', np.round(max_freq_hz/1000, 3), 
                       '  duration (ms): ', duration_ms  )
             #
-            return (peak_freq_hz, peak_dbfs, 
-                    start_freq_hz, end_freq_hz, 
-                    max_freq_hz, min_freq_hz, 
-                    duration_ms, 
-                    peak_signal_index, start_signal_index, end_signal_index)
+            return (np.round(peak_freq_hz/1000, 3), 
+                    np.round(peak_dbfs, 1), 
+                    np.round(start_freq_hz/1000, 3), 
+                    np.round(end_freq_hz/1000, 3), 
+                    np.round(max_freq_hz/1000, 3), 
+                    np.round(min_freq_hz/1000, 3), 
+                    np.round(duration_ms, 3), 
+                    peak_signal_index, 
+                    start_signal_index, 
+                    end_signal_index)
         else:
             return False
 
