@@ -252,7 +252,7 @@ class DbfsSpectrumUtil():
         else:
             return False
 
-    def chirp_shape_row_header(self):
+    def chirp_shape_header(self):
         """ """
         return ['time_s', 'frequency_hz', 'amplitude_dbfs', 'signal_index']
         
