@@ -44,6 +44,19 @@ class BatfilesScanner():
         self.file_utils = wave_file_utils.WurbFileUtils()
         self.files_df = None 
 
+    def create_list_of_files(self):
+        """ """
+        # Exists directory for results? Create if not.
+        if not pathlib.Path(self.scanning_results_dir).exists():
+            pathlib.Path(self.scanning_results_dir).mkdir(parents=True)
+        # Read files to dataframe.
+        self.file_utils.find_sound_files(dir_path=self.batfiles_dir, 
+                                         recursive=False, 
+                                         wurb_files_only=False)
+        self.files_df = self.file_utils.get_dataframe()
+        if self.debug:
+            print('Number of wave files found: ', len(self.files_df))
+    
     def scan_files(self, 
                 # Time domain parameters.
                 time_filter_low_limit_hz=15000,
@@ -75,11 +88,11 @@ class BatfilesScanner():
         for file_path in self.files_df.abs_file_path:
             #
             if self.debug:
-                print('Scanning file: ', file_path)
+                print('\n', 'Scanning file: ', file_path)
             # Read signal from file. Length 1 sec.
             wave_reader = wave_file_utils.WaveFileReader(file_path)
             # samp_width = wave_reader.samp_width
-            sampling_freq = wave_reader.frame_rate
+            sampling_freq = wave_reader.sampling_freq
             if sampling_freq != self.sampling_freq:
                 if self.debug:
                     print('\n', 'Error: Wrong sampling frequency in file: ', sampling_freq,
@@ -98,6 +111,8 @@ class BatfilesScanner():
             # Read file.
             checked_peaks_counter = 0
             found_peak_counter = 0
+            acc_checked_peaks_counter = 0
+            acc_found_peak_counter = 0
             buffer_number = 0
             # Read buffer, 1 sec.
             signal_1sec = wave_reader.read_buffer()
@@ -105,10 +120,8 @@ class BatfilesScanner():
             # Iterate over buffers.
             while len(signal_1sec) > 0:
                 # Get noise level for 1 sec buffer.
-                noise_level = signal_util.noise_level(signal_1sec)
-                noise_level_db = signal_util.noise_level_in_db(signal_1sec)
-                if self.debug:
-                    print('Noise level:', np.round(noise_level, 5), ' Noise (db):', np.round(noise_level_db, 2))
+                raw_noise_level = signal_util.noise_level(signal_1sec)
+                raw_noise_level_db = signal_util.noise_level_in_db(signal_1sec)
                 #
                 signal_1sec = signal_util.butterworth_filter(signal_1sec, 
                                                              low_freq_hz=time_filter_low_limit_hz,
@@ -117,14 +130,20 @@ class BatfilesScanner():
                 noise_level = signal_util.noise_level(signal_1sec)
                 noise_level_db = signal_util.noise_level_in_db(signal_1sec)
                 if self.debug:
-                    print('Noise level (after butterworth):', np.round(noise_level, 5), ' Noise (db):', np.round(noise_level_db, 2))
+                    print('Noise level (before filter):', np.round(noise_level, 5), 
+                          '(', np.round(raw_noise_level, 5), ')', 
+                          ' Noise (db):', np.round(noise_level_db, 2), 
+                          '(', np.round(raw_noise_level_db, 5), ')'
+                          )
                 # Find peaks in time domain.
                 peaks = signal_util.find_localmax(signal=signal_1sec,
                                                   noise_threshold=noise_level * localmax_noise_threshold_factor, 
                                                   jump=int(sampling_freq/localmax_jump_factor), 
                                                   frame_length=localmax_frame_length) # Window size.
     
-                checked_peaks_counter += len(peaks)
+                checked_peaks_counter = len(peaks)
+                acc_checked_peaks_counter += len(peaks)
+                found_peak_counter = 0
                 
                 for peak_position in peaks:
         
@@ -163,6 +182,11 @@ class BatfilesScanner():
                         out_file.write('\t'.join(map(str, out_row)) + '\n')
                         #
                         found_peak_counter += 1
+                        acc_found_peak_counter += 1
+
+                if self.debug:
+                    print('Buffer: Detected peak counter: ', str(found_peak_counter),
+                          '  of ', checked_peaks_counter, ' checked peaks.') 
                 #
                 buffer_number += 1
                 # Read next buffer.
@@ -170,16 +194,13 @@ class BatfilesScanner():
                 
             # Done.
             if self.debug:
-                print('Detected peak counter: ', str(found_peak_counter),
-                      '  of ', checked_peaks_counter, ' checked peaks.') 
+                print('Summary: Detected peak counter: ', str(acc_found_peak_counter),
+                      '  of ', acc_checked_peaks_counter, ' checked peaks.') 
             wave_reader.close()
             if out_file is None:
                 print('\n', 'Warning: No detected peaks found. No metrics produced.', '\n') 
             else: 
                 out_file.close()
-                
-            #
-            ###return sampling_freq # We need this later...    
     
     def plot_results(self, 
                      figsize_width=16, 
@@ -193,6 +214,13 @@ class BatfilesScanner():
                     ):
         """ """
         for file_path in self.files_df.abs_file_path:
+            # Update for each figure.
+            fig_min_time_s = plot_min_time_s
+            fig_max_time_s = plot_max_time_s
+            fig_max_freq_khz = plot_max_freq_khz
+            fig_max_interval_s = plot_max_interval_s
+            fig_max_duration_ms = plot_max_duration_ms
+
             # Prepare file pathes.
             metrics_file_path = pathlib.Path(file_path).stem + '_Metrics.txt'
             metrics_file_path = pathlib.Path(self.scanning_results_dir, metrics_file_path)
@@ -212,21 +240,21 @@ class BatfilesScanner():
             metrics_df['time_end_s'] = metrics_df.end_signal_index / self.sampling_freq
             # Calculate intervals between chirps.
             metrics_df['interval_s'] = metrics_df.time_peak_s.diff()
-            if plot_max_interval_s is None:
+            if fig_max_interval_s is None:
                 metrics_df.loc[(metrics_df.interval_s > 0.2)] = np.NaN # Too long interval.
             else:
-                metrics_df.loc[(metrics_df.interval_s > plot_max_interval_s)] = np.NaN # Too long interval.
+                metrics_df.loc[(metrics_df.interval_s > fig_max_interval_s)] = np.NaN # Too long interval.
             # Calculate if automatic.
-            if plot_min_time_s is None:
-                plot_min_time_s = metrics_df['time_peak_s'].min() - 0.1
-            if plot_max_time_s is None:
-                plot_max_time_s = metrics_df['time_peak_s'].max() + 0.1
-            if plot_max_freq_khz is None:
-                plot_max_freq_khz = self.sampling_freq / 1000 / 2 # Nyquist.
-            if plot_max_interval_s is None:
-                plot_max_interval_s = metrics_df['interval_s'].max() + 0.1
-            if plot_max_duration_ms is None:
-                plot_max_duration_ms = metrics_df['duration_ms'].max() + 0.1
+            if fig_min_time_s is None:
+                fig_min_time_s = metrics_df.time_peak_s.min() - 0.1
+            if fig_max_time_s is None:
+                fig_max_time_s = metrics_df.time_peak_s.max() + 0.1
+            if fig_max_freq_khz is None:
+                fig_max_freq_khz = self.sampling_freq / 1000 / 2 # Nyquist.
+            if fig_max_interval_s is None:
+                fig_max_interval_s = metrics_df.interval_s.max() + 0.1
+            if fig_max_duration_ms is None:
+                fig_max_duration_ms = metrics_df.duration_ms.max() + 0.1
             
             if len(metrics_df.time_peak_s) == 0:
                 return # Empty.
@@ -261,8 +289,8 @@ class BatfilesScanner():
                        alpha=0.8
                       )
             cbar = fig.colorbar(cs1, ax=ax1, label='dBFS')
-            ax1.set_xlim((plot_min_time_s, plot_max_time_s))
-            ax1.set_ylim((0, plot_max_freq_khz))
+            ax1.set_xlim((fig_min_time_s, fig_max_time_s))
+            ax1.set_ylim((0, fig_max_freq_khz))
             ax1.minorticks_on()
             ax1.grid(which='major', linestyle='-', linewidth='0.5', alpha=0.6)
             ax1.grid(which='minor', linestyle='-', linewidth='0.5', alpha=0.3)
@@ -285,8 +313,8 @@ class BatfilesScanner():
                        label=None,
                        alpha=0.8
                       )
-            ax2.set_xlim((plot_min_time_s, plot_max_time_s))
-            ax2.set_ylim((0, plot_max_interval_s))
+            ax2.set_xlim((fig_min_time_s, fig_max_time_s))
+            ax2.set_ylim((0, fig_max_interval_s))
             ax2.minorticks_on()
             ax2.grid(which='major', linestyle='-', linewidth='0.5', alpha=0.6)
             ax2.grid(which='minor', linestyle='-', linewidth='0.5', alpha=0.3)
@@ -303,8 +331,8 @@ class BatfilesScanner():
                          label='Duration (ms)',
                          alpha=0.5
                         )
-            ax3.set_xlim((plot_min_time_s, plot_max_time_s))
-            ax3.set_ylim((0, plot_max_duration_ms))
+            ax3.set_xlim((fig_min_time_s, fig_max_time_s))
+            ax3.set_ylim((0, fig_max_duration_ms))
             
             # Legends
             ax2.legend(loc='upper left')
@@ -329,7 +357,9 @@ class BatfilesScanner():
             ax3.set_ylabel('Duration (ms)')
             
             # Save and plot.
-            fig.savefig(str(plot_file_path))        
+            fig.savefig(str(plot_file_path))
+            #
+            plt.close()       
     
     def plot_positions_on_map(self, map_file_path=None):
         """ Plots positions on an interactive OpenStreetMap by using the folium library. 
@@ -385,25 +415,28 @@ if __name__ == "__main__":
     scanner = BatfilesScanner(
                 batfiles_dir='batfiles',
                 scanning_results_dir='batfiles_results',
-                sampling_freq= 500000, 
+#                 sampling_freq= 500000, 
                 debug=True) # True: Print progress information.
         
+    # Get files.
+    scanner.create_list_of_files()
+    
     # Scan all files and extract metrics.
     print('\n', 'Scanning files. ',  datetime.datetime.now(), '\n')
     scanner.scan_files(
                 # Time domain parameters.
-                time_filter_low_limit_hz=40000,
-                time_filter_high_limit_hz=None,
-                localmax_noise_threshold_factor=2.2, 
-                localmax_jump_factor=2000, 
+                time_filter_low_limit_hz=30000, 
+                time_filter_high_limit_hz=None, 
+                localmax_noise_threshold_factor=3.0, 
+                localmax_jump_factor=1000, 
                 localmax_frame_length=512, 
                 # Frequency domain parameters.
                 freq_window_size=128, 
-                freq_filter_low_hz=20000, 
-                freq_threshold_below_peak_db=30.0, 
+                freq_filter_low_hz=30000, 
+                freq_threshold_below_peak_db=20.0, 
                 freq_threshold_dbfs =-50.0, 
-                freq_jump_factor=4000, 
-                freq_max_frames_to_check=200, 
+                freq_jump_factor=2000, 
+                freq_max_frames_to_check=100, 
                 freq_max_silent_slots=8, 
                 )
     
@@ -413,9 +446,9 @@ if __name__ == "__main__":
                 figsize_width=16, 
                 figsize_height=10, 
                 dpi=80,
-                plot_min_time_s=0, # None: Automatic. 
-                plot_max_time_s=1.0, # None: Automatic. 
-                plot_max_freq_khz=200, # None: Automatic.  
+                plot_min_time_s=None, # None: Automatic. 
+                plot_max_time_s=None, # 1.0, # None: Automatic. 
+                plot_max_freq_khz=120, # None: Automatic.  
                 plot_max_interval_s=0.2, # None: Automatic.  
                 plot_max_duration_ms=20, # None: Automatic.  
                 )
