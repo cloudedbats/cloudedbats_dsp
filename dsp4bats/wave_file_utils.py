@@ -156,17 +156,18 @@ class WurbFileUtils(object):
         path_list = []
         # Search for wave files. 
         if recursive:
-            path_list = list(pathlib.Path(dir_path).glob('**/*.wav'))
+            path_list.append(list(pathlib.Path(dir_path).glob('**/*.wav')))
             path_list.append(list(pathlib.Path(dir_path).glob('**/*.WAV')))
         else:
-            path_list = list(pathlib.Path(dir_path).glob('*.wav'))
+            path_list.append(list(pathlib.Path(dir_path).glob('*.wav')))
             path_list.append(list(pathlib.Path(dir_path).glob('*.WAV')))
         #
         path_list = sorted(path_list)
             
         # Extract metadata from file name and populate dataframe.    
         data = []
-        for filepath in path_list[0]:
+#         for filepath in path_list[0]:
+        for filepath in path_list[1]:
             meta_dict = self.extract_metadata(filepath)
             if (wurb_files_only is False) or \
                (meta_dict.get('wurb_format', False) is True):

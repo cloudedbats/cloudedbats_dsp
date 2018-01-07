@@ -22,10 +22,11 @@ import matplotlib.pyplot as plt
 # sys.path.append('..')
 # import dsp4bats 
 
+import dsp4bats
 # Parts of dsp4bats. 
-import wave_file_utils
-import time_domain_utils
-import frequency_domain_utils 
+# import wave_file_utils
+# import time_domain_utils
+# import frequency_domain_utils 
 
 class BatfilesScanner():
     """ """
@@ -41,7 +42,7 @@ class BatfilesScanner():
         self.sampling_freq = sampling_freq        
         self.debug = debug
         #
-        self.file_utils = wave_file_utils.WurbFileUtils()
+        self.file_utils = dsp4bats.WurbFileUtils()
         self.files_df = None 
 
     def create_list_of_files(self):
@@ -62,8 +63,8 @@ class BatfilesScanner():
                 time_filter_low_limit_hz=15000,
                 time_filter_high_limit_hz=None,
                 localmax_noise_threshold_factor=1.2, 
-                localmax_jump_factor=2000, 
-                localmax_frame_length=512, 
+                localmax_jump_factor=1000, 
+                localmax_frame_length=1024, 
                 # Frequency domain parameters.
                 freq_window_size=128, 
                 freq_filter_low_hz=15000, 
@@ -90,7 +91,7 @@ class BatfilesScanner():
             if self.debug:
                 print('\n', 'Scanning file: ', file_path)
             # Read signal from file. Length 1 sec.
-            wave_reader = wave_file_utils.WaveFileReader(file_path)
+            wave_reader = dsp4bats.WaveFileReader(file_path)
             # samp_width = wave_reader.samp_width
             sampling_freq = wave_reader.sampling_freq
             if sampling_freq != self.sampling_freq:
@@ -99,8 +100,8 @@ class BatfilesScanner():
                           '   Expected: ', self.sampling_freq, '\n')
                     continue
             # Create dsp4bats utils.
-            signal_util = time_domain_utils.SignalUtil(sampling_freq)
-            spectrum_util = frequency_domain_utils.DbfsSpectrumUtil(window_size=freq_window_size,
+            signal_util = dsp4bats.SignalUtil(sampling_freq)
+            spectrum_util = dsp4bats.DbfsSpectrumUtil(window_size=freq_window_size,
                                                       window_function='kaiser',
                                                       kaiser_beta=14,
                                                       sampling_freq=sampling_freq)
@@ -410,12 +411,14 @@ class BatfilesScanner():
 # === MAIN ===    
 if __name__ == "__main__":
     """ """
+
     print('Batfile scanner started. ',  datetime.datetime.now())
     
+    #scanner = dsp4bats.BatfilesScanner(
     scanner = BatfilesScanner(
                 batfiles_dir='batfiles',
                 scanning_results_dir='batfiles_results',
-#                 sampling_freq= 500000, 
+                sampling_freq= 384000, 
                 debug=True) # True: Print progress information.
         
     # Get files.
@@ -425,30 +428,32 @@ if __name__ == "__main__":
     print('\n', 'Scanning files. ',  datetime.datetime.now(), '\n')
     scanner.scan_files(
                 # Time domain parameters.
-                time_filter_low_limit_hz=30000, 
-                time_filter_high_limit_hz=None, 
-                localmax_noise_threshold_factor=3.0, 
-                localmax_jump_factor=1000, 
-                localmax_frame_length=512, 
+                time_filter_low_limit_hz=30000, # Lower limit for highpass or bandpass filter.
+                time_filter_high_limit_hz=None,  # Upper limit for lowpass or bandpass filter.
+                localmax_noise_threshold_factor=3.0, # Multiplies the detected noise level by this factor. 
+                localmax_jump_factor=1000, # 1000 gives 1 ms jumps, 2000 gives 0.5 ms jumps.
+                localmax_frame_length=1024, # Frame size to smooth the signal.
                 # Frequency domain parameters.
-                freq_window_size=128, 
-                freq_filter_low_hz=30000, 
-                freq_threshold_below_peak_db=20.0, 
-                freq_threshold_dbfs =-50.0, 
-                freq_jump_factor=2000, 
-                freq_max_frames_to_check=100, 
-                freq_max_silent_slots=8, 
+                freq_window_size=128, # 
+                freq_filter_low_hz=30000, # Don't use peaks below this limit. 
+                freq_threshold_below_peak_db=20.0, # Threshold calculated in relation to chirp peak level.
+                freq_threshold_dbfs =-50.0, # Absolute threshold in dbms. 
+                freq_jump_factor=2000, # 1000 gives 1 ms jumps, 2000 gives 0.5 ms jumps.  
+                freq_max_frames_to_check=100, # Max number of jump steps to calculate metrics.  
+                freq_max_silent_slots=8, # Number of jump steps to detect start/end of chirp.
                 )
     
     # Plot the content of the "*_Metrics.txt" files as Matplotlib plots.
     print('\n', 'Creates plots. ',  datetime.datetime.now(), '\n')
     scanner.plot_results(
+                # Figure settings.
                 figsize_width=16, 
                 figsize_height=10, 
                 dpi=80,
-                plot_min_time_s=None, # None: Automatic. 
+                # Plot settings.
+                plot_min_time_s=0, # None: Automatic. 
                 plot_max_time_s=None, # 1.0, # None: Automatic. 
-                plot_max_freq_khz=120, # None: Automatic.  
+                plot_max_freq_khz=200, # None: Automatic.  
                 plot_max_interval_s=0.2, # None: Automatic.  
                 plot_max_duration_ms=20, # None: Automatic.  
                 )
@@ -457,6 +462,7 @@ if __name__ == "__main__":
     # interactive map (html) will be generated.
     print('\n', 'Creates map. ',  datetime.datetime.now(), '\n')
     scanner.plot_positions_on_map()
-
+    
     print('\n', 'Batfile scanner ended. ',  datetime.datetime.now(), '\n')
-
+    
+    

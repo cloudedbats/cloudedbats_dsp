@@ -7,7 +7,7 @@
 import numpy as np
 import scipy.signal
 import librosa
-import wave_file_utils
+#import wave_file_utils
 
 class SignalUtil():
     """ """
@@ -117,31 +117,31 @@ class SignalUtil():
 # === TEST ===    
 if __name__ == "__main__":
     """ """
-    print('Test started.')
-    
-    # Sugnal util.
-    signal_util = SignalUtil(sampling_freq=384000)
-    # Create chirp.
-    signal = signal_util.chirp_generator() # Defaults only.
-    # Write to file in Time Expanded mode.
-    wave_writer = wave_file_utils.WaveFileWriter('test.wav',
-                                 sampling_freq=signal_util.sampling_freq,
-                                 time_expanded=True)
-    wave_writer.write_buffer(signal)
-    print('Out buffer length in sec: ', len(signal)/wave_writer.sampling_freq)
-    wave_writer.write_buffer(signal)
-    print('Out buffer length in sec: ', len(signal)/wave_writer.sampling_freq)
-    wave_writer.close()
-
-    # Read file.
-    wave_reader = wave_file_utils.WaveFileReader('test.wav')
-    signal = wave_reader.read_buffer()
-    print('In buffer length in sec: ', len(signal)/wave_reader.sampling_freq)
-    signal = wave_reader.read_buffer()
-    print('In buffer length in sec: ', len(signal)/wave_reader.sampling_freq)
-    signal = wave_reader.read_buffer()
-    print('In buffer length in sec: ', len(signal)/wave_reader.sampling_freq)
-    wave_reader.close()
-    
-    print('Test ended.')
+#     print('Test started.')
+#      
+#     # Sugnal util.
+#     signal_util = SignalUtil(sampling_freq=384000)
+#     # Create chirp.
+#     signal = signal_util.chirp_generator() # Defaults only.
+#     # Write to file in Time Expanded mode.
+#     wave_writer = wave_file_utils.WaveFileWriter('test.wav',
+#                                  sampling_freq=signal_util.sampling_freq,
+#                                  time_expanded=True)
+#     wave_writer.write_buffer(signal)
+#     print('Out buffer length in sec: ', len(signal)/wave_writer.sampling_freq)
+#     wave_writer.write_buffer(signal)
+#     print('Out buffer length in sec: ', len(signal)/wave_writer.sampling_freq)
+#     wave_writer.close()
+#  
+#     # Read file.
+#     wave_reader = wave_file_utils.WaveFileReader('test.wav')
+#     signal = wave_reader.read_buffer()
+#     print('In buffer length in sec: ', len(signal)/wave_reader.sampling_freq)
+#     signal = wave_reader.read_buffer()
+#     print('In buffer length in sec: ', len(signal)/wave_reader.sampling_freq)
+#     signal = wave_reader.read_buffer()
+#     print('In buffer length in sec: ', len(signal)/wave_reader.sampling_freq)
+#     wave_reader.close()
+#      
+#     print('Test ended.')
 
