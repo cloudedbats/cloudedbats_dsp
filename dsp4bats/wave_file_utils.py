@@ -7,7 +7,120 @@
 import pathlib
 import re
 import dateutil.parser
+import numpy as np
 import pandas as pd
+import wave
+import librosa
+
+class WaveFileReader():
+    """ """
+    def __init__(self, file_path=None):
+        """ """
+        self.clear()
+        if file_path is not None:
+            self.open(file_path)
+        
+    def clear(self):
+        """ """
+        self.wave_file = None
+        self.channels = None
+        self.samp_width = None
+        self.frame_rate = None
+        self.sampling_freq = None
+
+    def open(self, file_path=None,
+            convert_te=True):
+        """ """
+        if file_path is not None:
+            self.file_path = file_path
+        #
+        if self.wave_file is not None:
+            self.close()
+        #
+        self.wave_file = wave.open(self.file_path, 'rb')
+        self.samp_width = self.wave_file.getsampwidth()
+        self.frame_rate = self.wave_file.getframerate()
+        #
+        self.sampling_freq = self.frame_rate
+        if convert_te:
+            if self.sampling_freq < 192000:
+                self.sampling_freq *= 10 # Must be Time Expanded.
+
+    def read_buffer(self, buffer_size=None):
+        """ """
+        if self.wave_file is None:
+            self.open()
+        #    
+        if buffer_size is None:
+            buffer_size = self.sampling_freq # Read 1 sec as default.
+        #
+        frame_buffer = self.wave_file.readframes(buffer_size)
+        # Convert to signal in the interval [-1.0, 1.0].
+        signal = librosa.util.buf_to_float(frame_buffer, n_bytes=self.samp_width)
+        #
+        return signal       
+
+    def close(self):
+        """ """
+        self.wave_file.close()
+        self.wave_file = None
+
+class WaveFileWriter():
+    """ """
+    def __init__(self, file_path=None,
+                 channels = 1,
+                 samp_width = 2,
+                 sampling_freq = 384000,
+                 frame_rate = 38400,
+                 time_expanded = False,   
+                ):
+        """ """
+        self.clear()
+        self.file_path = file_path
+        self.channels = channels
+        self.samp_width = samp_width
+        self.sampling_freq = sampling_freq
+        self.frame_rate = frame_rate
+        self.time_expanded = time_expanded
+        
+    def clear(self):
+        """ """
+        self.wave_file = None
+        self.channels = None
+        self.samp_width = None
+        self.sampling_freq = None
+        self.frame_rate = None
+        self.time_expanded = False
+
+    def open(self, file_path=None):
+        """ """
+        if file_path is not None:
+            self.file_path = file_path
+        #
+        if self.wave_file is not None:
+            self.close()
+        #
+        if self.time_expanded:
+            self.frame_rate = int(self.sampling_freq / 10)
+        #
+        self.wave_file = wave.open(self.file_path, 'wb')
+        self.wave_file.setnchannels(self.channels)
+        self.wave_file.setsampwidth(self.samp_width)
+        self.wave_file.setframerate(self.frame_rate)
+
+    def write_buffer(self, signal):
+        """ """
+        if self.wave_file is None:
+            self.open()
+        # Convert from signal in the interval [-1.0, 1.0] to int16.
+        signal_int16 = np.int16(signal * 32767)
+        #
+        self.wave_file.writeframes(signal_int16)
+
+    def close(self):
+        """ """
+        self.wave_file.close()
+        self.wave_file = None
 
 class WurbFileUtils(object):
     """ Class for sound file management. """
@@ -38,18 +151,22 @@ class WurbFileUtils(object):
         """ """
         return self._soundfiles_df
     
-    def find_sound_files(self, dir_path='.', recursive=False, wurb_files_only=True):
+    def find_sound_files(self, dir_path='.', recursive=False, wurb_files_only=False):
         """ Pandas dataframe is used to store found files. """
         path_list = []
         # Search for wave files. 
         if recursive:
-            path_list = sorted(pathlib.Path(dir_path).glob('**/*.wav'))
+            path_list = list(pathlib.Path(dir_path).glob('**/*.wav'))
+            path_list.append(list(pathlib.Path(dir_path).glob('**/*.WAV')))
         else:
-            path_list = sorted(pathlib.Path(dir_path).glob('*.wav'))
+            path_list = list(pathlib.Path(dir_path).glob('*.wav'))
+            path_list.append(list(pathlib.Path(dir_path).glob('*.WAV')))
+        #
+        path_list = sorted(path_list)
             
         # Extract metadata from file name and populate dataframe.    
         data = []
-        for filepath in path_list:
+        for filepath in path_list[0]:
             meta_dict = self.extract_metadata(filepath)
             if (wurb_files_only is False) or \
                (meta_dict.get('wurb_format', False) is True):
@@ -84,7 +201,7 @@ class WurbFileUtils(object):
         
         # Check if the file is a WURB generated/formatted file.
         meta_dict['wurb_format'] = False
-        if path.suffix not in ['.wav']:
+        if path.suffix not in ['.wav', '.WAV']:
             return None
         if len(parts) >= 4:
             rec_type = parts[3]

@@ -6,119 +6,8 @@
 
 import numpy as np
 import scipy.signal
-import wave
-#import scipy.io.wavfile
 import librosa
-
-class WaveFileReader():
-    """ """
-    def __init__(self, file_path=None):
-        """ """
-        self.clear()
-        if file_path is not None:
-            self.open(file_path)
-        
-    def clear(self):
-        """ """
-        self.wave_file = None
-        self.channels = None
-        self.samp_width = None
-        self.frame_rate = None
-        self.sampling_freq = None
-
-    def open(self, file_path=None,
-            convert_te=True):
-        """ """
-        if file_path is not None:
-            self.file_path = file_path
-        #
-        if self.wave_file is not None:
-            self.close()
-        #
-        self.wave_file = wave.open(self.file_path, 'rb')
-        self.samp_width = self.wave_file.getsampwidth()
-        self.frame_rate = self.wave_file.getframerate()
-        #
-        self.sampling_freq = self.frame_rate
-        if convert_te:
-            if self.sampling_freq < 192000:
-                self.sampling_freq *= 10 # Must be Time Expanded.
-
-    def read_buffer(self, buffer_size=None):
-        """ """
-        if self.wave_file is None:
-            self.open()
-        #    
-        if buffer_size is None:
-            buffer_size = self.sampling_freq # Read 1 sec as default.
-        #
-        frame_buffer = self.wave_file.readframes(buffer_size)
-        # Convert to signal in the interval [-1.0, 1.0].
-        signal = librosa.util.buf_to_float(frame_buffer, n_bytes=self.samp_width)
-        #
-        return signal       
-
-    def close(self):
-        """ """
-        self.wave_file.close()
-        self.wave_file = None
-
-class WaveFileWriter():
-    """ """
-    def __init__(self, file_path=None,
-                 channels = 1,
-                 samp_width = 2,
-                 sampling_freq = 384000,
-                 frame_rate = 38400,
-                 time_expanded = False,   
-                ):
-        """ """
-        self.clear()
-        self.file_path = file_path
-        self.channels = channels
-        self.samp_width = samp_width
-        self.sampling_freq = sampling_freq
-        self.frame_rate = frame_rate
-        self.time_expanded = time_expanded
-        
-    def clear(self):
-        """ """
-        self.wave_file = None
-        self.channels = None
-        self.samp_width = None
-        self.sampling_freq = None
-        self.frame_rate = None
-        self.time_expanded = False
-
-    def open(self, file_path=None):
-        """ """
-        if file_path is not None:
-            self.file_path = file_path
-        #
-        if self.wave_file is not None:
-            self.close()
-        #
-        if self.time_expanded:
-            self.frame_rate = int(self.sampling_freq / 10)
-        #
-        self.wave_file = wave.open(self.file_path, 'wb')
-        self.wave_file.setnchannels(self.channels)
-        self.wave_file.setsampwidth(self.samp_width)
-        self.wave_file.setframerate(self.frame_rate)
-
-    def write_buffer(self, signal):
-        """ """
-        if self.wave_file is None:
-            self.open()
-        # Convert from signal in the interval [-1.0, 1.0] to int16.
-        signal_int16 = np.int16(signal * 32767)
-        #
-        self.wave_file.writeframes(signal_int16)
-
-    def close(self):
-        """ """
-        self.wave_file.close()
-        self.wave_file = None
+import wave_file_utils
 
 class SignalUtil():
     """ """
@@ -140,12 +29,45 @@ class SignalUtil():
     def noise_level_in_db(self, signal):
         """ """
         return 20 * np.log10(self.noise_level(signal) / 1.0)
-
+        
+    def butterworth_filter(self, signal, 
+                           low_freq_hz=None, # For highpass and bandpass filters
+                           high_freq_hz=None, # For lowpass and bandpass filters
+                           filter_order=9,  
+                           bandstop=False): # Use both low_ and high_freq_hz for bandstop. 
+        """ Filter. Butterworth. """
+        nyquist = 0.5 * self.sampling_freq
+        #
+        if (low_freq_hz is not None) and (high_freq_hz is None) and (bandstop is False):
+            low = low_freq_hz / nyquist
+            b, a = scipy.signal.butter(filter_order, [low], btype='highpass')
+        elif (low_freq_hz is None) and (high_freq_hz is None) and (bandstop is False):
+            high = high_freq_hz / nyquist
+            b, a = scipy.signal.butter(filter_order, [high], btype='lowpass')
+        elif (low_freq_hz is None) and (high_freq_hz is None) and (bandstop is False):
+            low = low_freq_hz / nyquist
+            high = high_freq_hz / nyquist
+            b, a = scipy.signal.butter(filter_order, [low, high], btype='bandpass')
+        elif (low_freq_hz is not None) and (high_freq_hz is not None) and (bandstop is True):
+            low = low_freq_hz / nyquist
+            high = high_freq_hz / nyquist
+            b, a = scipy.signal.butter(filter_order, [low, high], btype='bandstop')
+        else:
+            return signal
+        # Apply folter on signal.
+        # filtered_signal = scipy.signal.lfilter(b, a, signal)
+        filtered_signal = scipy.signal.filtfilt(b, a, signal)
+        #
+        return filtered_signal
+    
     def find_localmax(self, signal,
-                      noise_threshold=0.0, 
+                      noise_threshold=0.0, # Range: [0.0, 1.0]. 
                       jump=None, 
                       frame_length=1024):
         """ """
+        # Adjust for comparable results for low sampling rates.
+        if self.sampling_freq < 300000:
+            frame_length = int(frame_length / 2) 
         if jump is None:
             jump=int(self.sampling_freq/1000) # Default = 1 ms.
         y = signal.copy()
@@ -169,7 +91,7 @@ class SignalUtil():
                         number_of_chirps = 10, 
                         ):
         """ """
-        # Create chirp.
+        # Create chirp. The shape is in between FM and QCF calls.
         time = np.linspace(0, duration_s, int(self.sampling_freq * duration_s))
         chirp = scipy.signal.waveforms.chirp(time, 
                                              f0=start_freq_hz, 
@@ -197,11 +119,12 @@ if __name__ == "__main__":
     """ """
     print('Test started.')
     
-    # Chirp generator.
+    # Sugnal util.
     signal_util = SignalUtil(sampling_freq=384000)
+    # Create chirp.
     signal = signal_util.chirp_generator() # Defaults only.
     # Write to file in Time Expanded mode.
-    wave_writer = WaveFileWriter('test.wav',
+    wave_writer = wave_file_utils.WaveFileWriter('test.wav',
                                  sampling_freq=signal_util.sampling_freq,
                                  time_expanded=True)
     wave_writer.write_buffer(signal)
@@ -211,7 +134,7 @@ if __name__ == "__main__":
     wave_writer.close()
 
     # Read file.
-    wave_reader = WaveFileReader('test.wav')
+    wave_reader = wave_file_utils.WaveFileReader('test.wav')
     signal = wave_reader.read_buffer()
     print('In buffer length in sec: ', len(signal)/wave_reader.sampling_freq)
     signal = wave_reader.read_buffer()

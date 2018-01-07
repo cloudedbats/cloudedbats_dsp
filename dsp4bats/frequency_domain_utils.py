@@ -6,8 +6,6 @@
 
 import numpy as np
 import scipy.signal
-import soundfile
-import librosa
 
 class DbfsSpectrumUtil():
     """ """

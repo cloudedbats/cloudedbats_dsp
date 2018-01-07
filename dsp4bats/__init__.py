@@ -6,13 +6,13 @@
 
 # Makes it possible to "import dsp4bats" only to get access to all classes.
 
-from .time_domain_utils import WaveFileReader
-from .time_domain_utils import WaveFileWriter
 from .time_domain_utils import SignalUtil
 
 from .frequency_domain_utils import DbfsSpectrumUtil
 
-from .wurb_file_utils import WurbFileUtils
+from .wave_file_utils import WaveFileReader
+from .wave_file_utils import WaveFileWriter
+from .wave_file_utils import WurbFileUtils
 
 from .sound_stream_manager import SoundSourceBase
 from .sound_stream_manager import SoundProcessBase
