@@ -16,17 +16,12 @@ except:
     folium_installed = False
 #
 import matplotlib
-matplotlib.use('Agg')
+###matplotlib.use('Agg')
 import matplotlib.pyplot as plt
-# import sys
-# sys.path.append('..')
-# import dsp4bats 
 
-import dsp4bats
-# Parts of dsp4bats. 
-# import wave_file_utils
-# import time_domain_utils
-# import frequency_domain_utils 
+import sys
+sys.path.append('..')
+import dsp4bats 
 
 class BatfilesScanner():
     """ """
@@ -416,9 +411,16 @@ if __name__ == "__main__":
     
     #scanner = dsp4bats.BatfilesScanner(
     scanner = BatfilesScanner(
-                batfiles_dir='batfiles',
-                scanning_results_dir='batfiles_results',
-                sampling_freq= 384000, 
+#                 batfiles_dir='batfiles',
+#                scanning_results_dir='batfiles_results',
+#                 sampling_freq= 384000, 
+ 
+                
+                batfiles_dir='../../../../bats_armstrong',
+                scanning_results_dir='../../../../bats_armstrong_results',
+                sampling_freq= 500000, 
+                
+                
                 debug=True) # True: Print progress information.
         
     # Get files.

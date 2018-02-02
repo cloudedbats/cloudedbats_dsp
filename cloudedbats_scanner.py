@@ -4,6 +4,9 @@
 import sys
 #sys.path.append('.')
 
+import matplotlib
+matplotlib.use('Agg')
+
 import datetime
 import dsp4bats
 
