@@ -6,6 +6,8 @@
 
 # Makes it possible to "import dsp4bats" only to get access to all classes.
 
+__version__ = '0.1.0'
+
 from .wave_file_utils import WaveFileReader
 from .wave_file_utils import WaveFileWriter
 from .wave_file_utils import WurbFileUtils
