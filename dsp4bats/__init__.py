@@ -13,12 +13,12 @@ from .wave_file_utils import WaveFileWriter
 from .wave_file_utils import WurbFileUtils
 
 from .time_domain_utils import SignalUtil
-
+ 
 from .frequency_domain_utils import DbfsSpectrumUtil
-
+ 
 from .sound_stream_manager import SoundSourceBase
 from .sound_stream_manager import SoundProcessBase
 from .sound_stream_manager import SoundTargetBase
 from .sound_stream_manager import SoundStreamManager
-
-#from .batfiles_scanner import BatfilesScanner
+ 
+from .batfiles_scanner import BatfilesScanner

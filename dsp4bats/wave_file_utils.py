@@ -10,7 +10,8 @@ import dateutil.parser
 import numpy as np
 import pandas as pd
 import wave
-import librosa
+import struct
+# import librosa
 
 class WaveFileReader():
     """ """
@@ -46,7 +47,7 @@ class WaveFileReader():
             if self.sampling_freq < 192000:
                 self.sampling_freq *= 10 # Must be Time Expanded.
 
-    def read_buffer(self, buffer_size=None):
+    def read_buffer(self, buffer_size=None, convert_to_float=True):
         """ """
         if self.wave_file is None:
             self.open()
@@ -55,8 +56,19 @@ class WaveFileReader():
             buffer_size = self.sampling_freq # Read 1 sec as default.
         #
         frame_buffer = self.wave_file.readframes(buffer_size)
-        # Convert to signal in the interval [-1.0, 1.0].
-        signal = librosa.util.buf_to_float(frame_buffer, n_bytes=self.samp_width)
+        # Convert byte array to int16 array. Support for 16 bits mono only.       
+#         buffer_length = int(len(frame_buffer) / 2)
+#         struct_format = '<' + str(buffer_length) + 'h' # Little endian and 16 bit integer.
+#         signal = np.int16(struct.unpack(struct_format, frame_buffer))
+        
+        signal = np.fromstring(frame_buffer, dtype=np.int16)
+        
+#         print('DEBUG: Signal length: ', len(signal))
+        
+        #
+        if convert_to_float:
+            # Convert to signal in the interval [-1.0, 1.0].
+            signal = signal / 32767
         #
         return signal       
 
