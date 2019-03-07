@@ -23,4 +23,4 @@ from .sound_stream_manager import SoundStreamManager
  
 from .batfiles_scanner import BatfilesScanner
 
-from . import librosa_mini
+from .librosa_utils import *

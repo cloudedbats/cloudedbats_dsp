@@ -7,7 +7,7 @@
 import numpy as np
 import scipy.signal
 
-from dsp4bats import librosa_mini
+import dsp4bats
 
 class SignalUtil():
     """ """
@@ -73,12 +73,11 @@ class SignalUtil():
         y = signal.copy()
         if noise_threshold > 0.0:
             y[(np.abs(y) < noise_threshold)] = 0.0
-#         rmse = librosa_mini.feature.rmse(y=y, hop_length=jump, frame_length=frame_length, center=True)
-        rmse = librosa_mini.feature.rms(y=y, hop_length=jump, frame_length=frame_length, center=True)
-        locmax = librosa_mini.util.localmax(rmse.T)
+        rms = dsp4bats.librosa_rms(y=y, hop_length=jump, frame_length=frame_length, center=True)
+        locmax = dsp4bats.librosa_localmax(rms.T)
         maxindexlist = [index for index, a in enumerate(locmax) if a==True]
         # Original index list is related to jump length. Convert.
-        index_list = librosa_mini.core.frames_to_samples(maxindexlist, hop_length=jump)
+        index_list = dsp4bats.librosa_frames_to_samples(maxindexlist, hop_length=jump)
         #
         return index_list
 
