@@ -13,8 +13,8 @@ import dsp4bats
 print('Batfile scanner started. ',  datetime.datetime.now())
 
 scanner = dsp4bats.BatfilesScanner(
-            batfiles_dir='batfiles',
-            scanning_results_dir='batfiles_results',
+            batfiles_dir='data/batfiles',
+            scanning_results_dir='data/batfiles_results',
             sampling_freq= 500000, #384000, # True sampling frequency (before TE). 
             debug=True) # True: Print progress information.
     

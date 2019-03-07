@@ -6,8 +6,8 @@
 
 import numpy as np
 import scipy.signal
-import librosa
-#import wave_file_utils
+
+from dsp4bats import librosa_mini
 
 class SignalUtil():
     """ """
@@ -73,11 +73,12 @@ class SignalUtil():
         y = signal.copy()
         if noise_threshold > 0.0:
             y[(np.abs(y) < noise_threshold)] = 0.0
-        rmse = librosa.feature.rmse(y=y, hop_length=jump, frame_length=frame_length, center=True)
-        locmax = librosa.util.localmax(rmse.T)
+#         rmse = librosa_mini.feature.rmse(y=y, hop_length=jump, frame_length=frame_length, center=True)
+        rmse = librosa_mini.feature.rms(y=y, hop_length=jump, frame_length=frame_length, center=True)
+        locmax = librosa_mini.util.localmax(rmse.T)
         maxindexlist = [index for index, a in enumerate(locmax) if a==True]
         # Original index list is related to jump length. Convert.
-        index_list = librosa.frames_to_samples(maxindexlist, hop_length=jump)
+        index_list = librosa_mini.core.frames_to_samples(maxindexlist, hop_length=jump)
         #
         return index_list
 
@@ -117,31 +118,33 @@ class SignalUtil():
 # === TEST ===    
 if __name__ == "__main__":
     """ """
-#     print('Test started.')
-#      
-#     # Sugnal util.
-#     signal_util = SignalUtil(sampling_freq=384000)
-#     # Create chirp.
-#     signal = signal_util.chirp_generator() # Defaults only.
-#     # Write to file in Time Expanded mode.
-#     wave_writer = wave_file_utils.WaveFileWriter('test.wav',
-#                                  sampling_freq=signal_util.sampling_freq,
-#                                  time_expanded=True)
-#     wave_writer.write_buffer(signal)
-#     print('Out buffer length in sec: ', len(signal)/wave_writer.sampling_freq)
-#     wave_writer.write_buffer(signal)
-#     print('Out buffer length in sec: ', len(signal)/wave_writer.sampling_freq)
-#     wave_writer.close()
-#  
-#     # Read file.
-#     wave_reader = wave_file_utils.WaveFileReader('test.wav')
-#     signal = wave_reader.read_buffer()
-#     print('In buffer length in sec: ', len(signal)/wave_reader.sampling_freq)
-#     signal = wave_reader.read_buffer()
-#     print('In buffer length in sec: ', len(signal)/wave_reader.sampling_freq)
-#     signal = wave_reader.read_buffer()
-#     print('In buffer length in sec: ', len(signal)/wave_reader.sampling_freq)
-#     wave_reader.close()
-#      
-#     print('Test ended.')
+    print('Test started.')
+      
+    from dsp4bats import wave_file_utils
+
+    # Sugnal util.
+    signal_util = SignalUtil(sampling_freq=384000)
+    # Create chirp.
+    signal = signal_util.chirp_generator() # Defaults only.
+    # Write to file in Time Expanded mode.
+    wave_writer = wave_file_utils.WaveFileWriter('../data/batfiles/test_chirp_generator.wav',
+                                 sampling_freq=signal_util.sampling_freq,
+                                 time_expanded=True)
+    wave_writer.write_buffer(signal)
+    print('Out buffer length in sec: ', len(signal)/wave_writer.sampling_freq)
+    wave_writer.write_buffer(signal)
+    print('Out buffer length in sec: ', len(signal)/wave_writer.sampling_freq)
+    wave_writer.close()
+  
+    # Read file.
+    wave_reader = wave_file_utils.WaveFileReader('../data/batfiles/test_chirp_generator.wav')
+    signal = wave_reader.read_buffer()
+    print('In buffer length in sec: ', len(signal)/wave_reader.sampling_freq)
+    signal = wave_reader.read_buffer()
+    print('In buffer length in sec: ', len(signal)/wave_reader.sampling_freq)
+    signal = wave_reader.read_buffer()
+    print('In buffer length in sec: ', len(signal)/wave_reader.sampling_freq)
+    wave_reader.close()
+      
+    print('Test ended.')
 

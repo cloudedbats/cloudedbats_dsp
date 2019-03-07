@@ -14,14 +14,12 @@ try:
     import folium # For maps.
 except:
     folium_installed = False
-#
-import matplotlib
-###matplotlib.use('Agg')
+
+##import matplotlib
+##matplotlib.use('Agg')
 import matplotlib.pyplot as plt
 
-from .wave_file_utils import WaveFileReader, WurbFileUtils
-from .time_domain_utils import SignalUtil
-from .frequency_domain_utils import DbfsSpectrumUtil
+import dsp4bats
 
 class BatfilesScanner():
     """ """
@@ -37,7 +35,7 @@ class BatfilesScanner():
         self.sampling_freq = sampling_freq        
         self.debug = debug
         #
-        self.file_utils = WurbFileUtils()
+        self.file_utils = dsp4bats.WurbFileUtils()
         self.files_df = None 
 
     def create_list_of_files(self):
@@ -86,7 +84,7 @@ class BatfilesScanner():
             if self.debug:
                 print('\n', 'Scanning file: ', file_path)
             # Read signal from file. Length 1 sec.
-            wave_reader = WaveFileReader(file_path)
+            wave_reader = dsp4bats.WaveFileReader(file_path)
             # samp_width = wave_reader.samp_width
             sampling_freq = wave_reader.sampling_freq
             if sampling_freq != self.sampling_freq:
@@ -95,8 +93,8 @@ class BatfilesScanner():
                           '   Expected: ', self.sampling_freq, '\n')
                     continue
             # Create dsp4bats utils.
-            signal_util = SignalUtil(sampling_freq)
-            spectrum_util = DbfsSpectrumUtil(window_size=freq_window_size,
+            signal_util = dsp4bats.SignalUtil(sampling_freq)
+            spectrum_util = dsp4bats.DbfsSpectrumUtil(window_size=freq_window_size,
                                                       window_function='kaiser',
                                                       kaiser_beta=14,
                                                       sampling_freq=sampling_freq)
@@ -411,16 +409,10 @@ if __name__ == "__main__":
     
     #scanner = dsp4bats.BatfilesScanner(
     scanner = BatfilesScanner(
-#                 batfiles_dir='batfiles',
-#                scanning_results_dir='batfiles_results',
-#                 sampling_freq= 384000, 
- 
-                
-                batfiles_dir='../../../../bats_armstrong',
-                scanning_results_dir='../../../../bats_armstrong_results',
-                sampling_freq= 500000, 
-                
-                
+                batfiles_dir='../data/batfiles',
+                scanning_results_dir='../data/batfiles_results',
+                sampling_freq= 384000, 
+#                 sampling_freq= 500000, 
                 debug=True) # True: Print progress information.
         
     # Get files.

@@ -15,6 +15,5 @@ setup(name='dsp4bats',
         'numpy', 
         'matplotlib', 
         'pandas', 
-        'librosa', 
     ],
     zip_safe=False)

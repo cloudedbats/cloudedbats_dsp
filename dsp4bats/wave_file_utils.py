@@ -10,8 +10,6 @@ import dateutil.parser
 import numpy as np
 import pandas as pd
 import wave
-import struct
-# import librosa
 
 class WaveFileReader():
     """ """
