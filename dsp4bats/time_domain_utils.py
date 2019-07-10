@@ -41,10 +41,10 @@ class SignalUtil():
         if (low_freq_hz is not None) and (high_freq_hz is None) and (bandstop is False):
             low = low_freq_hz / nyquist
             b, a = scipy.signal.butter(filter_order, [low], btype='highpass')
-        elif (low_freq_hz is None) and (high_freq_hz is None) and (bandstop is False):
+        elif (low_freq_hz is None) and (high_freq_hz is not None) and (bandstop is False):
             high = high_freq_hz / nyquist
             b, a = scipy.signal.butter(filter_order, [high], btype='lowpass')
-        elif (low_freq_hz is None) and (high_freq_hz is None) and (bandstop is False):
+        elif (low_freq_hz is not None) and (high_freq_hz is not None) and (bandstop is False):
             low = low_freq_hz / nyquist
             high = high_freq_hz / nyquist
             b, a = scipy.signal.butter(filter_order, [low, high], btype='bandpass')
