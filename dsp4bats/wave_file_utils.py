@@ -8,7 +8,7 @@ import pathlib
 import re
 import dateutil.parser
 import numpy as np
-import pandas as pd
+# import pandas as pd
 import wave
 
 class WaveFileReader():
@@ -161,36 +161,36 @@ class WurbFileUtils(object):
         """ """
         return self._soundfiles_df
     
-    def find_sound_files(self, dir_path='.', recursive=False, wurb_files_only=False):
-        """ Pandas dataframe is used to store found files. """
-        path_list = []
-        # Search for wave files. 
-        if recursive:
-            path_list.append(list(pathlib.Path(dir_path).glob('**/*.wav')))
-            path_list.append(list(pathlib.Path(dir_path).glob('**/*.WAV')))
-        else:
-            path_list.append(list(pathlib.Path(dir_path).glob('*.wav')))
-            path_list.append(list(pathlib.Path(dir_path).glob('*.WAV')))
-        #
-        path_list = sorted(path_list)
-            
-        # Extract metadata from file name and populate dataframe.    
-        data = []
-#         for filepath in path_list[0]:
-        for filepath in path_list[1]:
-            meta_dict = self.extract_metadata(filepath)
-            if (wurb_files_only is False) or \
-               (meta_dict.get('wurb_format', False) is True):
-                #
-                data_row = []
-                for key in self._columns:
-                    data_row.append(meta_dict.get(key, ''))
-                #
-                data.append(data_row)
-
-        # Create dataframe.    
-        self._soundfiles_df = pd.DataFrame(data, columns=self._columns)
-        self._soundfiles_df.reset_index()
+#     def find_sound_files(self, dir_path='.', recursive=False, wurb_files_only=False):
+#         """ Pandas dataframe is used to store found files. """
+#         path_list = []
+#         # Search for wave files. 
+#         if recursive:
+#             path_list.append(list(pathlib.Path(dir_path).glob('**/*.wav')))
+#             path_list.append(list(pathlib.Path(dir_path).glob('**/*.WAV')))
+#         else:
+#             path_list.append(list(pathlib.Path(dir_path).glob('*.wav')))
+#             path_list.append(list(pathlib.Path(dir_path).glob('*.WAV')))
+#         #
+#         path_list = sorted(path_list)
+#             
+#         # Extract metadata from file name and populate dataframe.    
+#         data = []
+# #         for filepath in path_list[0]:
+#         for filepath in path_list[1]:
+#             meta_dict = self.extract_metadata(filepath)
+#             if (wurb_files_only is False) or \
+#                (meta_dict.get('wurb_format', False) is True):
+#                 #
+#                 data_row = []
+#                 for key in self._columns:
+#                     data_row.append(meta_dict.get(key, ''))
+#                 #
+#                 data.append(data_row)
+# 
+#         # Create dataframe.    
+#         self._soundfiles_df = pd.DataFrame(data, columns=self._columns)
+#         self._soundfiles_df.reset_index()
 
     def extract_metadata(self, filepath):
         """ Used to extract file name parts from sound files created by CloudedBats-WURB.

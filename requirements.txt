@@ -1,0 +1,11 @@
+
+numpy
+scipy
+python_dateutil
+
+jupyter
+matplotlib
+pandas
+librosa
+bokeh
+

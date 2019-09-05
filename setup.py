@@ -13,7 +13,7 @@ setup(name='dsp4bats',
     packages=['dsp4bats'],
     install_requires=[
         'numpy', 
-        'matplotlib', 
-        'pandas', 
+        'scipy', 
+        'python-dateutil', 
     ],
     zip_safe=False)

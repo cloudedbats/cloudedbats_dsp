@@ -6,7 +6,7 @@
 
 # Makes it possible to "import dsp4bats" only to get access to all classes.
 
-__version__ = '0.1.1'
+__version__ = '0.1.2'
 
 from .wave_file_utils import WaveFileReader
 from .wave_file_utils import WaveFileWriter
@@ -21,6 +21,6 @@ from .sound_stream_manager import SoundProcessBase
 from .sound_stream_manager import SoundTargetBase
 from .sound_stream_manager import SoundStreamManager
  
-from .batfiles_scanner import BatfilesScanner
+# from .batfiles_scanner import BatfilesScanner
 
 from .librosa_utils import *
